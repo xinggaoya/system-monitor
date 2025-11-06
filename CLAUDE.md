@@ -20,6 +20,9 @@ pnpm tauri build
 
 # 仅构建前端
 pnpm build
+
+# 类型检查
+pnpm type-check
 ```
 
 ### 测试
@@ -29,6 +32,18 @@ pnpm build
 # systemStore.testDataRefresh()
 
 # 详细测试：打开 test_data_refresh.html 文件进行浏览器端测试
+```
+
+### 代码质量
+```bash
+# Rust 代码格式化
+cargo fmt
+
+# Rust 代码质量检查
+cargo clippy
+
+# 运行 Rust 测试
+cargo test
 ```
 
 ## 技术栈架构
@@ -46,10 +61,13 @@ pnpm build
 - **框架**: Tauri 2.2 + tokio 异步运行时
 - **系统监控**: sysinfo 0.33 库
 - **模块结构**:
-  - `src-tauri/src/lib.rs` - 主要入口，定义 Tauri 命令
+  - `src-tauri/src/lib.rs` - 主要入口，定义 Tauri 命令和应用状态
   - `src-tauri/src/models.rs` - 数据结构定义
   - `src-tauri/src/monitor.rs` - 系统监控逻辑
-  - `src-tauri/src/test_commands.rs` - 测试命令
+  - `src-tauri/src/gpu_monitor.rs` - GPU 监控实现
+  - `src-tauri/src/adaptive_refresh.rs` - 自适应刷新频率管理
+  - `src-tauri/src/errors.rs` - 错误处理定义
+  - `src-tauri/src/retry.rs` - 重试机制
 
 ### 核心功能模块
 
@@ -84,3 +102,19 @@ pnpm build
 - GPU 信息每 5 次轮询更新一次（减少查询频率）
 - 支持手动刷新和配置更新
 - 错误处理和重试机制
+- **自适应刷新**: 根据系统负载动态调整刷新频率
+- **增量更新**: 支持 SystemInfoDelta 减少数据传输
+
+### 关键 Tauri 命令
+- `get_system_info()` - 获取完整系统信息
+- `get_system_info_delta()` - 获取增量更新数据
+- `smart_refresh_system_info()` - 智能刷新（自适应频率）
+- `get_gpu_info()` - 获取 GPU 信息
+- `update_monitor_config()` - 更新监控配置
+- `toggle_window()` - 切换窗口显示状态
+- `quit_app()` - 退出应用
+
+### 应用状态管理
+- `AppState` 结构体使用 `Arc<RwLock<>>` 实现异步安全的状态共享
+- 优化内存使用：使用 `Arc` 共享数据，减少不必要的克隆
+- 支持增量更新：保存上一次数据用于计算差异

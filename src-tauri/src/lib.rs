@@ -199,6 +199,93 @@ async fn toggle_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     toggle_window_internal(&app_handle)
 }
 
+// 显示设置窗口（支持窗口重建）
+#[tauri::command]
+async fn show_settings_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    // 尝试获取现有窗口
+    if let Some(window) = app_handle.get_webview_window("settings") {
+        match window.is_visible() {
+            Ok(visible) => {
+                if visible {
+                    window.set_focus().map_err(|e| {
+                        eprintln!("设置窗口聚焦失败: {}", e);
+                        e.to_string()
+                    })?;
+                    println!("设置窗口已获得焦点");
+                } else {
+                    window.unminimize().map_err(|e| {
+                        eprintln!("设置窗口取消最小化失败: {}", e);
+                        e.to_string()
+                    })?;
+                    window.show().map_err(|e| {
+                        eprintln!("显示设置窗口失败: {}", e);
+                        e.to_string()
+                    })?;
+                    window.set_focus().map_err(|e| {
+                        eprintln!("设置窗口聚焦失败: {}", e);
+                        e.to_string()
+                    })?;
+                    println!("设置窗口已显示并获得焦点");
+                }
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("检查设置窗口可见性失败: {}", e);
+                // 尝试重建窗口
+            }
+        }
+    }
+
+    // 窗口不存在或已被销毁，需要重新创建
+    println!("设置窗口不存在，正在创建新窗口...");
+
+    use tauri::{WebviewWindowBuilder, WebviewUrl};
+
+    let webview_url = WebviewUrl::App("/settings".into());
+    let window = WebviewWindowBuilder::new(&app_handle, "settings", webview_url)
+        .title("系统监控设置")
+        .inner_size(800.0, 600.0)
+        .min_inner_size(600.0, 400.0)
+        .resizable(true)
+        .decorations(true)
+        .shadow(true)
+        .center()
+        .build()
+        .map_err(|e| {
+            eprintln!("创建设置窗口失败: {}", e);
+            e.to_string()
+        })?;
+
+    window.show().map_err(|e| {
+        eprintln!("显示新创建的设置窗口失败: {}", e);
+        e.to_string()
+    })?;
+
+    window.set_focus().map_err(|e| {
+        eprintln!("设置新创建的设置窗口焦点失败: {}", e);
+        e.to_string()
+    })?;
+
+    println!("设置窗口创建成功并已显示");
+    Ok(())
+}
+
+// 关闭设置窗口
+#[tauri::command]
+async fn close_settings_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("settings") {
+        window.hide().map_err(|e| {
+            eprintln!("隐藏设置窗口失败: {}", e);
+            e.to_string()
+        })?;
+        println!("设置窗口已隐藏");
+    } else {
+        eprintln!("找不到设置窗口");
+        return Err("找不到设置窗口".to_string());
+    }
+    Ok(())
+}
+
 // 退出应用
 #[tauri::command]
 async fn quit_app(app_handle: tauri::AppHandle) -> Result<(), String> {
@@ -206,10 +293,82 @@ async fn quit_app(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// Store 相关命令
+use tauri_plugin_store::StoreExt;
+
+// 保存设置到Store
+#[tauri::command]
+async fn save_settings(app_handle: tauri::AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
+    let store = app_handle.store("settings.json").map_err(|e| e.to_string())?;
+    store.set(&key, value);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// 从Store获取设置
+#[tauri::command]
+async fn get_settings(app_handle: tauri::AppHandle, key: String) -> Result<Option<serde_json::Value>, String> {
+    let store = app_handle.store("settings.json").map_err(|e| e.to_string())?;
+    Ok(store.get(&key))
+}
+
+// 获取所有设置
+#[tauri::command]
+async fn get_all_settings(app_handle: tauri::AppHandle) -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
+    let store = app_handle.store("settings.json").map_err(|e| e.to_string())?;
+    let mut settings = std::collections::HashMap::new();
+
+    // 获取Store中所有的键值对
+    let store_data = store.entries();
+    for (key, value) in store_data {
+        settings.insert(key.clone(), value);
+    }
+
+    Ok(settings)
+}
+
+// 删除设置
+#[tauri::command]
+async fn delete_settings(app_handle: tauri::AppHandle, key: String) -> Result<(), String> {
+    let store = app_handle.store("settings.json").map_err(|e| e.to_string())?;
+    store.delete(&key);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+    let mut builder = tauri::Builder::default();
+
+    // 基础插件
+    builder = builder.plugin(tauri_plugin_opener::init());
+
+    // 集成单例插件，防止多开应用
+    // #[cfg(desktop)]
+    // {
+    //     builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+    //         let _ = app.get_webview_window("main")
+    //             .expect("no main window")
+    //             .set_focus();
+    //     }));
+    // }
+
+    // 集成窗口状态插件，实现窗口状态持久化
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    }
+
+    // 集成Store插件，用于数据持久化存储
+    builder = builder.plugin(tauri_plugin_store::Builder::new().build());
+
+    // 集成自动启动插件
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_autostart::Builder::new().build());
+    }
+
+    builder
         .setup(|app| {
             // 创建系统监控器
             let monitor = SystemMonitor::new(MonitorConfig::default());
@@ -223,9 +382,10 @@ pub fn run() {
 
             // 创建托盘菜单
             let show_item = MenuItemBuilder::with_id("show", "显示/隐藏").build(app)?;
+            let settings_item = MenuItemBuilder::with_id("settings", "设置").build(app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
             let menu = MenuBuilder::new(app)
-                .items(&[&show_item, &quit_item])
+                .items(&[&show_item, &settings_item, &quit_item])
                 .build()?;
 
             // 创建托盘图标
@@ -240,6 +400,16 @@ pub fn run() {
                             Ok(_) => println!("托盘菜单切换窗口状态成功"),
                             Err(e) => eprintln!("托盘菜单切换窗口状态失败: {}", e),
                         }
+                    }
+                    "settings" => {
+                        // 显示设置窗口（支持重建）
+                        let app_handle = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            match show_settings_window(app_handle).await {
+                                Ok(_) => println!("托盘菜单打开设置窗口成功"),
+                                Err(e) => eprintln!("托盘菜单打开设置窗口失败: {}", e),
+                            }
+                        });
                     }
                     "quit" => {
                         println!("通过托盘菜单退出应用");
@@ -282,7 +452,14 @@ pub fn run() {
             get_suggested_refresh_interval,
             get_refresh_statistics,
             toggle_window,
+            show_settings_window,
+            close_settings_window,
             quit_app,
+            // Store 相关命令
+            save_settings,
+            get_settings,
+            get_all_settings,
+            delete_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

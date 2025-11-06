@@ -19,7 +19,7 @@
         "minWidth": 400,
         "minHeight": 20,
         "maxWidth": 600,
-        "maxHeight": 400,
+        "maxHeight": 20,
         "resizable": true,
         "transparent": true,
         "alwaysOnTop": true,
@@ -27,6 +27,23 @@
         "shadow": false,
         "skipTaskbar": true,
         "center": true
+      },
+      {
+        "label": "settings",
+        "title": "系统监控设置",
+        "url": "/settings",
+        "width": 800,
+        "height": 600,
+        "minWidth": 600,
+        "minHeight": 400,
+        "resizable": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "decorations": true,
+        "shadow": true,
+        "skipTaskbar": false,
+        "center": true,
+        "visible": false
       }
     ],
     "security": {
