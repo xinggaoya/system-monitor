@@ -1,5 +1,7 @@
 name: CI/CD Pipeline
 
+# 修复 pnpm 缓存配置问题 - 2025-01-07
+
 permissions:
   contents: write
   deployments: write
