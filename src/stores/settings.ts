@@ -16,6 +16,8 @@ export interface SettingsState {
   enableMemoryMonitor: boolean
   enableGpuMonitor: boolean
   enableNetworkMonitor: boolean
+  enableDiskMonitor: boolean
+  enableTemperatureMonitor: boolean
   opacity: number
   themeColor: string
   logLevel: string
@@ -41,6 +43,8 @@ const defaultSettings: SettingsState = {
   enableMemoryMonitor: true,
   enableGpuMonitor: true,
   enableNetworkMonitor: true,
+  enableDiskMonitor: true,
+  enableTemperatureMonitor: true,
   opacity: 90,
   themeColor: '#3b82f6',
   logLevel: 'info',
@@ -99,6 +103,8 @@ export const useSettingsStore = defineStore('settings', () => {
       enable_memory: settings.value.enableMemoryMonitor,
       enable_gpu: settings.value.enableGpuMonitor,
       enable_network: settings.value.enableNetworkMonitor,
+      enable_disk: settings.value.enableDiskMonitor,
+      enable_temperature: settings.value.enableTemperatureMonitor,
       refresh_strategy: {
         Adaptive: {
           min_interval_ms: Math.max(250, Math.round(settings.value.refreshInterval * 0.5)),

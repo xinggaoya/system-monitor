@@ -40,6 +40,18 @@
         <span v-else class="data-value">--</span>
       </template>
 
+      <template v-if="settings.enableDiskMonitor">
+        <span class="data-divider">|</span>
+        <span class="data-label">磁盘</span>
+        <span class="data-value" :title="diskInfo.detail">{{ diskInfo.value }}</span>
+      </template>
+
+      <template v-if="settings.enableTemperatureMonitor">
+        <span class="data-divider">|</span>
+        <span class="data-label">温度</span>
+        <span class="data-value" :title="temperatureInfo.detail">{{ temperatureInfo.value }}</span>
+      </template>
+
       <template v-if="showNetwork">
         <span class="data-divider">|</span>
         <span class="data-label">网络</span>
@@ -321,6 +333,45 @@ watch(
   },
   { immediate: true }
 )
+
+const diskInfo = computed(() => {
+  if (!settings.value.enableDiskMonitor) {
+    return { value: '--', detail: '' }
+  }
+  const disks = systemInfo.value?.disk?.disks
+  if (!disks || !disks.length) {
+    return { value: '--', detail: '' }
+  }
+  const busiest = [...disks].sort((a, b) => b.usage_percent - a.usage_percent)[0]
+  const label = busiest.mount_point || busiest.name || 'Disk'
+  const used = systemStore.formatBytes?.(busiest.used_space) ?? ''
+  const total = systemStore.formatBytes?.(busiest.total_space) ?? ''
+  return {
+    value: `${Math.round(busiest.usage_percent)}%`,
+    detail: `${label} · ${used}/${total}`
+  }
+})
+
+const temperatureInfo = computed(() => {
+  if (!settings.value.enableTemperatureMonitor) {
+    return { value: '--', detail: '' }
+  }
+  const temps = systemInfo.value?.temperatures
+  if (!temps || !temps.length) {
+    return { value: '--', detail: '' }
+  }
+  const hottest = temps.reduce((max, current) => {
+    return current.temperature > max.temperature ? current : max
+  })
+  const formatted = systemStore.formatTemperature?.(hottest.temperature) ?? `${hottest.temperature.toFixed(1)}°C`
+  const extra: string[] = []
+  if (hottest.max) extra.push(`Max ${hottest.max.toFixed(0)}°C`)
+  if (hottest.critical) extra.push(`Critical ${hottest.critical.toFixed(0)}°C`)
+  return {
+    value: formatted,
+    detail: `${hottest.label}${extra.length ? ` · ${extra.join(' / ')}` : ''}`
+  }
+})
 
 const showNetwork = computed(() => settings.value.enableNetworkMonitor && !!systemInfo.value?.network)
 

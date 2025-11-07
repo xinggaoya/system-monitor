@@ -71,6 +71,18 @@
                     @update:value="handleSettingsChange"
                 />
               </n-form-item>
+              <n-form-item label="启用磁盘监控" path="enableDiskMonitor">
+                <n-switch
+                    v-model:value="settings.enableDiskMonitor"
+                    @update:value="handleSettingsChange"
+                />
+              </n-form-item>
+              <n-form-item label="启用温度监控" path="enableTemperatureMonitor">
+                <n-switch
+                    v-model:value="settings.enableTemperatureMonitor"
+                    @update:value="handleSettingsChange"
+                />
+              </n-form-item>
             </n-card>
           </n-gi>
 
