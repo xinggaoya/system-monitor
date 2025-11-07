@@ -1,5 +1,8 @@
 <template>
-  <div class="floating-monitor" data-tauri-drag-region :style="monitorStyles">
+  <div class="floating-monitor" 
+       data-tauri-drag-region 
+       :style="monitorStyles"
+       @contextmenu.prevent="handleContextMenu">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
       <div class="loading-spinner"></div>
@@ -39,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSystemMonitor } from '@/composables/useSystemMonitor'
 import { useSystemStore } from '@/stores/system'
@@ -58,37 +61,10 @@ const systemStore = useSystemStore()
 const settingsStore = useSettingsStore()
 const { settings } = storeToRefs(settingsStore)
 
-// 计算属性
-const loading = computed(() => {
-  // 如果有错误信息，不显示加载状态
-  if (error?.value) return false
-
-  // 如果系统信息不存在，显示加载状态
-  return !systemInfo?.value
-})
-
-// 获取CPU使用率
-const getCpuUsage = computed(() => {
-  if (!systemInfo?.value) return 0
-  return Math.round(systemInfo.value.cpu_usage)
-})
-
-// 获取内存使用率
-const getMemoryUsage = computed(() => {
-  if (!systemInfo?.value?.memory) return 0
-  return Math.round(systemInfo.value.memory.usage_percent)
-})
-
-const monitorStyles = computed(() => {
-  const opacity = (settings.value.opacity ?? 100) / 100
-  const color = settings.value.themeColor || '#3b82f6'
-  return {
-    opacity,
-    borderColor: color,
-    boxShadow: `0 8px 20px ${color}33`,
-    '--monitor-accent': color
-  }
-})
+// 禁用右键菜单
+const handleContextMenu = (e: MouseEvent) => {
+  e.preventDefault()
+}
 
 // 组件挂载时测试GPU监控功能
 onMounted(async () => {
@@ -113,6 +89,10 @@ onMounted(async () => {
   }
 })
 
+// 组件卸载时移除事件监听器
+onUnmounted(() => {
+  // 清理工作
+})
 </script>
 
 <style scoped>
@@ -123,8 +103,9 @@ onMounted(async () => {
   border-radius: 20px;
   line-height: 39px;
   padding: 0 16px;
-  border: 1px solid transparent;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  border: none;
+  background-color: transparent;
+  transition: opacity 0.2s ease;
 }
 
 /* 加载状态 */
@@ -174,7 +155,7 @@ onMounted(async () => {
 .data-label {
   font-size: 15px;
   font-weight: bold;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--monitor-foreground, rgba(255, 255, 255, 0.95));
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   /* 允许拖动事件穿透 */
   pointer-events: none;
@@ -183,7 +164,7 @@ onMounted(async () => {
 .data-value {
   font-size: 14px;
   font-weight: 700;
-  color: white;
+  color: var(--monitor-foreground, #ffffff);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   min-width: 32px;
   letter-spacing: 0.5px;
@@ -212,5 +193,6 @@ onMounted(async () => {
 .network-upload {
   font-size: 12px;
   letter-spacing: 0.3px;
+  color: var(--monitor-foreground, #ffffff);
 }
 </style>

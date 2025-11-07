@@ -179,6 +179,8 @@ const cacheTimeOptions = [
 ]
 
 const themeColors = [
+  {name: '黑', value: '#000000'},
+  {name: '白', value: '#ffffff'},
   {name: '蓝', value: '#3b82f6'},
   {name: '绿', value: '#10b981'},
   {name: '紫', value: '#8b5cf6'},
