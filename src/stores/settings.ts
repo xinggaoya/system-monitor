@@ -12,6 +12,8 @@ export interface SettingsState {
   showInTaskbar: boolean
   alwaysOnTop: boolean
   refreshInterval: number
+  enableCpuMonitor: boolean
+  enableMemoryMonitor: boolean
   enableGpuMonitor: boolean
   enableNetworkMonitor: boolean
   opacity: number
@@ -20,6 +22,14 @@ export interface SettingsState {
   cacheTime: number
   windowWidth: number
   windowHeight: number
+  cpuAlertThreshold: number
+  memoryAlertThreshold: number
+  cpuSmoothing: number
+  memorySmoothing: number
+  backgroundStyle: 'glass' | 'aurora' | 'midnight' | 'transparent'
+  backgroundAccent: string
+  foregroundColor: string
+  fontFamily: string
 }
 
 const defaultSettings: SettingsState = {
@@ -27,6 +37,8 @@ const defaultSettings: SettingsState = {
   showInTaskbar: false,
   alwaysOnTop: true,
   refreshInterval: 1000,
+  enableCpuMonitor: true,
+  enableMemoryMonitor: true,
   enableGpuMonitor: true,
   enableNetworkMonitor: true,
   opacity: 90,
@@ -34,7 +46,15 @@ const defaultSettings: SettingsState = {
   logLevel: 'info',
   cacheTime: 600,
   windowWidth: 600,
-  windowHeight: 40
+  windowHeight: 40,
+  cpuAlertThreshold: 85,
+  memoryAlertThreshold: 80,
+  cpuSmoothing: 60,
+  memorySmoothing: 55,
+  backgroundStyle: 'glass',
+  backgroundAccent: '#3b82f6',
+  foregroundColor: '#ffffff',
+  fontFamily: 'Inter'
 }
 
 const SETTINGS_LOCAL_KEY = 'system-monitor-settings'
@@ -75,8 +95,19 @@ export const useSettingsStore = defineStore('settings', () => {
     const systemStore = useSystemStore()
     await systemStore.updateConfig({
       refresh_interval: settings.value.refreshInterval,
+      enable_cpu: settings.value.enableCpuMonitor,
+      enable_memory: settings.value.enableMemoryMonitor,
       enable_gpu: settings.value.enableGpuMonitor,
-      enable_network: settings.value.enableNetworkMonitor
+      enable_network: settings.value.enableNetworkMonitor,
+      refresh_strategy: {
+        Adaptive: {
+          min_interval_ms: Math.max(250, Math.round(settings.value.refreshInterval * 0.5)),
+          max_interval_ms: Math.max(2000, settings.value.refreshInterval * 6),
+          cpu_threshold: settings.value.cpuAlertThreshold,
+          memory_threshold: settings.value.memoryAlertThreshold,
+          change_threshold: 5
+        }
+      }
     })
   }
 

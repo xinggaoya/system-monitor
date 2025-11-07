@@ -47,6 +47,18 @@
                     @update:value="handleSettingsChange"
                 />
               </n-form-item>
+              <n-form-item label="启用 CPU 监控" path="enableCpuMonitor">
+                <n-switch
+                    v-model:value="settings.enableCpuMonitor"
+                    @update:value="handleSettingsChange"
+                />
+              </n-form-item>
+              <n-form-item label="启用内存监控" path="enableMemoryMonitor">
+                <n-switch
+                    v-model:value="settings.enableMemoryMonitor"
+                    @update:value="handleSettingsChange"
+                />
+              </n-form-item>
               <n-form-item label="启用 GPU 监控" path="enableGpuMonitor">
                 <n-switch
                     v-model:value="settings.enableGpuMonitor"
@@ -63,7 +75,60 @@
           </n-gi>
 
           <n-gi>
-            <n-card title="外观" class="settings-card">
+            <n-card title="性能控制" class="settings-card">
+              <n-form-item label="CPU 平滑" path="cpuSmoothing">
+                <div class="setting-control">
+                  <n-slider
+                      v-model:value="settings.cpuSmoothing"
+                      :min="10"
+                      :max="90"
+                      :step="5"
+                      @update:value="handleSettingsChange"
+                  />
+                  <span class="setting-value">{{ settings.cpuSmoothing }}%</span>
+                </div>
+              </n-form-item>
+              <n-form-item label="CPU 警戒线" path="cpuAlertThreshold">
+                <div class="setting-control">
+                  <n-slider
+                      v-model:value="settings.cpuAlertThreshold"
+                      :min="40"
+                      :max="100"
+                      :step="5"
+                      @update:value="handleSettingsChange"
+                  />
+                  <span class="setting-value">{{ settings.cpuAlertThreshold }}%</span>
+                </div>
+              </n-form-item>
+              <n-form-item label="内存平滑" path="memorySmoothing">
+                <div class="setting-control">
+                  <n-slider
+                      v-model:value="settings.memorySmoothing"
+                      :min="10"
+                      :max="90"
+                      :step="5"
+                      @update:value="handleSettingsChange"
+                  />
+                  <span class="setting-value">{{ settings.memorySmoothing }}%</span>
+                </div>
+              </n-form-item>
+              <n-form-item label="内存警戒线" path="memoryAlertThreshold">
+                <div class="setting-control">
+                  <n-slider
+                      v-model:value="settings.memoryAlertThreshold"
+                      :min="40"
+                      :max="100"
+                      :step="5"
+                      @update:value="handleSettingsChange"
+                  />
+                  <span class="setting-value">{{ settings.memoryAlertThreshold }}%</span>
+                </div>
+              </n-form-item>
+            </n-card>
+          </n-gi>
+
+          <n-gi>
+            <n-card title="背景设置" class="settings-card">
               <n-form-item label="透明度" path="opacity">
                 <div class="setting-control">
                   <n-slider
@@ -77,30 +142,78 @@
                   <span class="setting-value">{{ settings.opacity }}%</span>
                 </div>
               </n-form-item>
-              <n-form-item label="主题颜色" path="themeColor">
+              <n-form-item label="背景风格" path="backgroundStyle">
+                <n-select
+                    class="setting-select"
+                    v-model:value="settings.backgroundStyle"
+                    :options="backgroundStyleOptions"
+                    size="small"
+                    @update:value="handleSettingsChange"
+                />
+              </n-form-item>
+              <n-form-item label="主色调" path="backgroundAccent">
                 <div class="setting-control color-control">
                   <n-color-picker
-                      v-model:value="settings.themeColor"
+                      v-model:value="settings.backgroundAccent"
                       :modes="['hex']"
                       :show-alpha="false"
                       size="small"
-                      @update:value="changeThemeColor"
+                      @update:value="changeBackgroundAccent"
                   />
                   <div class="quick-colors">
                     <n-button
-                        v-for="color in themeColors"
+                        v-for="color in accentColors"
                         :key="color.name"
                         quaternary
                         round
                         size="tiny"
                         :style="{ backgroundColor: color.value, color: '#fff' }"
-                        :class="['color-chip', { active: settings.themeColor === color.value }]"
-                        @click="changeThemeColor(color.value)"
+                        :class="['color-chip', { active: settings.backgroundAccent === color.value }]"
+                        @click="changeBackgroundAccent(color.value)"
                     >
                       {{ color.name }}
                     </n-button>
                   </div>
                 </div>
+              </n-form-item>
+            </n-card>
+          </n-gi>
+
+          <n-gi>
+            <n-card title="字体设置" class="settings-card">
+              <n-form-item label="字体颜色" path="foregroundColor">
+                <div class="setting-control color-control">
+                  <n-color-picker
+                      v-model:value="settings.foregroundColor"
+                      :modes="['hex']"
+                      :show-alpha="false"
+                      size="small"
+                      @update:value="changeForegroundColor"
+                  />
+                  <div class="quick-colors">
+                    <n-button
+                        v-for="color in foregroundColors"
+                        :key="color.name"
+                        quaternary
+                        round
+                        size="tiny"
+                        :style="{ backgroundColor: color.value, color: color.text }"
+                        :class="['color-chip', { active: settings.foregroundColor === color.value }]"
+                        @click="changeForegroundColor(color.value)"
+                    >
+                      {{ color.name }}
+                    </n-button>
+                  </div>
+                </div>
+              </n-form-item>
+              <n-form-item label="字体样式" path="fontFamily">
+                <n-select
+                    class="setting-select"
+                    v-model:value="settings.fontFamily"
+                    :options="fontFamilyOptions"
+                    size="small"
+                    @update:value="handleSettingsChange"
+                />
               </n-form-item>
             </n-card>
           </n-gi>
@@ -178,15 +291,38 @@ const cacheTimeOptions = [
   {label: '1 小时', value: 3600}
 ]
 
-const themeColors = [
-  {name: '黑', value: '#000000'},
-  {name: '白', value: '#ffffff'},
-  {name: '蓝', value: '#3b82f6'},
-  {name: '绿', value: '#10b981'},
-  {name: '紫', value: '#8b5cf6'},
-  {name: '红', value: '#ef4444'},
-  {name: '橙', value: '#f97316'},
-  {name: '青', value: '#06b6d4'}
+const backgroundStyleOptions = [
+  {label: '玻璃质感', value: 'glass'},
+  {label: '极光渐变', value: 'aurora'},
+  {label: '午夜暗色', value: 'midnight'},
+  {label: '纯透明', value: 'transparent'}
+]
+
+const accentColors = [
+  {name: '曜石', value: '#0f172a'},
+  {name: '深蓝', value: '#1d4ed8'},
+  {name: '薄荷', value: '#14b8a6'},
+  {name: '极光紫', value: '#8b5cf6'},
+  {name: '熔岩', value: '#ef4444'},
+  {name: '夕阳', value: '#f97316'},
+  {name: '青碧', value: '#06b6d4'},
+  {name: '星辉', value: '#6366f1'}
+]
+
+const foregroundColors = [
+  {name: '纯白', value: '#ffffff', text: '#111827'},
+  {name: '冷白', value: '#f3f4f6', text: '#1f2937'},
+  {name: '蓝灰', value: '#cbd5f5', text: '#0f172a'},
+  {name: '暖金', value: '#facc15', text: '#1f2937'},
+  {name: '霓虹绿', value: '#a3e635', text: '#0f172a'},
+  {name: '珊瑚', value: '#fb7185', text: '#0f172a'}
+]
+
+const fontFamilyOptions = [
+  {label: 'Inter', value: 'Inter'},
+  {label: 'JetBrains Mono', value: 'JetBrains Mono'},
+  {label: 'SF Pro Display', value: 'SF Pro Display'},
+  {label: 'System UI', value: 'system-ui'}
 ]
 
 const handleSettingsChange = () => {
@@ -198,8 +334,12 @@ const handleAutoStartUpdate = async (value: boolean) => {
   await settingsStore.setAutoStart(value)
 }
 
-const changeThemeColor = (color: string) => {
-  settingsStore.updateSettings({themeColor: color})
+const changeBackgroundAccent = (color: string) => {
+  settingsStore.updateSettings({backgroundAccent: color})
+}
+
+const changeForegroundColor = (color: string) => {
+  settingsStore.updateSettings({foregroundColor: color})
 }
 
 const resetSettings = async () => {
@@ -290,6 +430,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 .setting-value {
@@ -297,6 +438,11 @@ onMounted(() => {
   color: #6366f1;
   width: 48px;
   text-align: right;
+}
+
+:deep(.setting-control .n-slider) {
+  flex: 1;
+  min-width: 220px;
 }
 
 .opacity-slider {
