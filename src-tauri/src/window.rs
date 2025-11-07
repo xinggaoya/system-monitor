@@ -3,7 +3,7 @@
 //! 负责管理应用窗口的显示、隐藏、创建和销毁等操作
 
 use tauri::{WebviewWindowBuilder, WebviewUrl, Manager};
-use log::{info, debug, error, warn};
+use log::{debug, error};
 
 /// 切换主窗口的显示/隐藏状态
 ///

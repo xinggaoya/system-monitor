@@ -6,7 +6,7 @@ use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use serde_json::Value;
 use std::collections::HashMap;
-use log::{info, debug, error, warn};
+use log::{info, debug, error};
 
 /// 保存设置到Store
 ///

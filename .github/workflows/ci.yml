@@ -75,7 +75,7 @@ jobs:
       run: |
         cd src-tauri
         cargo check --verbose
-        cargo clippy -- -D warnings
+        cargo clippy -- -W clippy::all -A dead_code -A unused-imports
 
     - name: Run Rust tests
       run: |

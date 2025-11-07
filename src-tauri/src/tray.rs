@@ -7,7 +7,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle,
 };
-use log::{info, debug, error, warn};
+use log::{info, debug, error};
 use crate::window::{toggle_window_internal, show_settings_window};
 
 /// 创建并初始化系统托盘

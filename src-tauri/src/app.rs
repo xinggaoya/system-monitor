@@ -7,7 +7,7 @@ use crate::monitor::SystemMonitor;
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::RwLock;
-use log::{info, debug, error, warn};
+use log::info;
 use crate::tray;
 use crate::system_commands;
 use crate::window;

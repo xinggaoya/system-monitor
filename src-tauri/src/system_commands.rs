@@ -153,7 +153,7 @@ pub async fn get_system_info_delta(state: State<'_, crate::AppState>) -> Result<
 
         if let Some(ref last) = *last_data {
             // 有历史数据，计算增量
-            let delta = SystemInfoDelta::from_diff(&**last, &system_info);
+            let delta = SystemInfoDelta::from_diff(last, &system_info);
             debug!("计算增量更新成功");
             delta
         } else {

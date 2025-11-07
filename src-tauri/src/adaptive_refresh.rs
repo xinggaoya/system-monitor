@@ -176,8 +176,7 @@ impl AdaptiveRefreshManager {
                 } else {
                     // 中等负载：自适应调整
                     let load_factor = (cpu_load / 100.0).max(memory_load / 100.0);
-                    let adaptive_interval = *min_interval + (*max_interval - *min_interval).mul_f32(1.0 - load_factor);
-                    adaptive_interval
+                    *min_interval + (*max_interval - *min_interval).mul_f32(1.0 - load_factor)
                 };
 
                 // 平滑调整，避免频繁大幅变化
