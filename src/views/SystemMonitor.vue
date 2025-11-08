@@ -18,47 +18,31 @@
 
     <!-- 数据显示 -->
     <div v-else class="monitor-data">
-      <template v-if="settings.enableCpuMonitor">
-        <span class="data-label">CPU</span>
-        <span class="data-value" :class="cpuStateClass">{{ getCpuUsage }}%</span>
-      </template>
-
-      <span
-          v-if="settings.enableCpuMonitor && settings.enableMemoryMonitor"
-          class="data-divider"
-      >|</span>
-
-      <template v-if="settings.enableMemoryMonitor">
-        <span class="data-label">内存</span>
-        <span class="data-value" :class="memoryStateClass">{{ getMemoryUsage }}%</span>
-      </template>
-
-      <template v-if="settings.enableGpuMonitor">
-        <span class="data-divider">|</span>
-        <span class="data-label">GPU</span>
-        <span v-if="gpuInfo" class="data-value">{{ Math.round(gpuInfo.usage_percent) }}%</span>
-        <span v-else class="data-value">--</span>
-      </template>
-
-      <template v-if="settings.enableDiskMonitor">
-        <span class="data-divider">|</span>
-        <span class="data-label">磁盘</span>
-        <span class="data-value" :title="diskInfo.detail">{{ diskInfo.value }}</span>
-      </template>
-
-      <template v-if="settings.enableTemperatureMonitor">
-        <span class="data-divider">|</span>
-        <span class="data-label">温度</span>
-        <span class="data-value" :title="temperatureInfo.detail">{{ temperatureInfo.value }}</span>
-      </template>
-
-      <template v-if="showNetwork">
-        <span class="data-divider">|</span>
-        <span class="data-label">网络</span>
-        <span class="data-value network-values">
-          <div class="network-download">↓{{ networkSpeed.download }}</div>
-          <div class="network-upload">↑{{ networkSpeed.upload }}</div>
-        </span>
+      <template v-for="(module, index) in moduleDisplays" :key="module.key">
+        <span v-if="index > 0" class="data-divider">|</span>
+        <span class="data-label">{{ module.label }}</span>
+        <template v-if="module.type === 'text'">
+          <span class="data-value" :class="module.valueClass" :title="module.tooltip">
+            {{ module.value }}
+          </span>
+        </template>
+        <template v-else-if="module.type === 'temperature'">
+          <span class="data-value temperature-breakdown" :title="module.badge?.detail">
+            {{ module.badge?.value ?? '--' }}
+          </span>
+        </template>
+        <template v-else-if="module.type === 'frame'">
+          <span class="data-value frame-stats" :class="module.frame?.qualityClass" :title="module.frame?.detail">
+            {{ module.frame?.fpsText }}
+            <small>{{ module.frame?.frameTimeText }}</small>
+          </span>
+        </template>
+        <template v-else-if="module.type === 'network'">
+          <span class="data-value network-values">
+            <div class="network-download">↓{{ module.network?.download }}</div>
+            <div class="network-upload">↑{{ module.network?.upload }}</div>
+          </span>
+        </template>
       </template>
     </div>
   </div>
@@ -71,13 +55,16 @@ import { getCurrentWindow, type Window } from '@tauri-apps/api/window'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { useSystemMonitor } from '@/composables/useSystemMonitor'
 import { useSystemStore } from '@/stores/system'
-import { useSettingsStore, type SettingsState } from '@/stores/settings'
+import type { TemperatureInfo, TemperatureCategory } from '@/stores/system'
+import { useSettingsStore, type SettingsState, type TemperaturePanelPreference, type TemperaturePanelKey, type MonitorModulePreference, type MonitorModuleKey } from '@/stores/settings'
 
 const {
   systemInfo,
   gpuInfo,
   error,
-  networkSpeed
+  networkSpeed,
+  frameStats,
+  frameError
 } = useSystemMonitor(true)
 
 const systemStore = useSystemStore()
@@ -106,6 +93,43 @@ const HEIGHT_BUFFER = 16
 const cpuDisplay = ref<number | null>(null)
 const memoryDisplay = ref<number | null>(null)
 
+type TemperatureGroupMap = Record<TemperatureCategory, TemperatureInfo[]>
+
+interface TemperatureBadge {
+  key: string
+  label: string
+  sensorLabel: string
+  value: string
+  detail: string
+  category: TemperatureCategory | 'mixed'
+}
+
+interface TemperatureBlock {
+  key: string
+  label: string
+  badge: TemperatureBadge
+}
+
+interface ModuleDisplay {
+  key: string
+  label: string
+  type: 'text' | 'temperature' | 'frame' | 'network'
+  value?: string
+  valueClass?: string
+  tooltip?: string
+  badge?: TemperatureBadge
+  frame?: {
+    fpsText: string
+    frameTimeText: string
+    detail: string
+    qualityClass: string
+  }
+  network?: {
+    download: string
+    upload: string
+  }
+}
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 const easeValue = (prev: number | null, next: number, smoothingPercent: number) => {
@@ -113,6 +137,80 @@ const easeValue = (prev: number | null, next: number, smoothingPercent: number) 
   if (prev === null) return Number(next.toFixed(1))
   const lerp = clamp((100 - smoothingPercent) / 100, 0.05, 1)
   return Number((prev + (next - prev) * lerp).toFixed(1))
+}
+
+const createTemperatureGroups = (): TemperatureGroupMap => ({
+  'cpu-package': [],
+  'cpu-core': [],
+  memory: [],
+  gpu: [],
+  motherboard: [],
+  vrm: [],
+  storage: [],
+  other: []
+})
+
+const includesKeyword = (target: string, keywords: string[]) => {
+  return keywords.some((keyword) => target.includes(keyword))
+}
+
+const categorizeTemperatureLabel = (label: string): TemperatureCategory => {
+  const normalized = label.toLowerCase()
+  if (
+    normalized.includes('cpu') &&
+    includesKeyword(normalized, ['package', 'tdie', 'tctl', 'socket', 'die'])
+  ) {
+    return 'cpu-package'
+  }
+  if (
+    normalized.includes('cpu') &&
+    includesKeyword(normalized, ['core', '#', 'ccd', 'ccx', 'thread', 'l3'])
+  ) {
+    return 'cpu-core'
+  }
+  if (includesKeyword(normalized, ['dimm', 'memory', 'ram'])) {
+    return 'memory'
+  }
+  if (includesKeyword(normalized, ['gpu', 'graphics', 'video'])) {
+    return 'gpu'
+  }
+  if (includesKeyword(normalized, ['vrm', 'vcore', 'soc'])) {
+    return 'vrm'
+  }
+  if (includesKeyword(normalized, ['pch', 'chipset', 'motherboard', 'board'])) {
+    return 'motherboard'
+  }
+  if (includesKeyword(normalized, ['nvme', 'ssd', 'hdd', 'm.2', 'm2', 'drive', 'storage'])) {
+    return 'storage'
+  }
+  return 'other'
+}
+
+const formatTemperatureValue = (temp: number) => {
+  return systemStore.formatTemperature?.(temp) ?? `${temp.toFixed(1)}°C`
+}
+
+const buildTemperatureBadge = (
+  key: string,
+  label: string,
+  sensors: TemperatureInfo[],
+  category: TemperatureCategory | 'mixed'
+): TemperatureBadge | null => {
+  if (!sensors?.length) return null
+  const hottest = sensors.reduce((max, current) => {
+    return current.temperature > max.temperature ? current : max
+  })
+  const extra: string[] = []
+  if (typeof hottest.max === 'number') extra.push(`Max ${hottest.max.toFixed(0)}°C`)
+  if (typeof hottest.critical === 'number') extra.push(`Critical ${hottest.critical.toFixed(0)}°C`)
+  return {
+    key,
+    label,
+    sensorLabel: hottest.label,
+    value: formatTemperatureValue(hottest.temperature),
+    detail: `${hottest.label}${extra.length ? ` · ${extra.join(' / ')}` : ''}`,
+    category
+  }
 }
 
 watch(
@@ -174,6 +272,322 @@ const memoryStateClass = computed(() => {
   if (memoryDisplay.value >= settings.value.memoryAlertThreshold) return 'critical'
   if (memoryDisplay.value >= settings.value.memoryAlertThreshold - 10) return 'warn'
   return 'normal'
+})
+
+const frameModuleState = computed(() => {
+  if (!settings.value.enableFrameStats) {
+    return {
+      fpsText: '--',
+      frameTimeText: '--',
+      detail: '帧率采集未启用',
+      qualityClass: 'state-idle'
+    }
+  }
+  if (frameError.value) {
+    return {
+      fpsText: 'ERR',
+      frameTimeText: '--',
+      detail: frameError.value ?? '帧率采集失败',
+      qualityClass: 'state-critical'
+    }
+  }
+  const stats = frameStats.value
+  if (!stats) {
+    return {
+      fpsText: '--',
+      frameTimeText: '--',
+      detail: '等待帧率采集',
+      qualityClass: 'state-idle'
+    }
+  }
+  const fps = stats.average_fps
+  const fpsText = Number.isFinite(fps) ? `${fps.toFixed(0)} FPS` : '--'
+  const frameTimeText = fps > 0 ? `${(1000 / fps).toFixed(1)} ms` : '--'
+  let qualityClass = 'state-idle'
+  if (fps >= 70) {
+    qualityClass = 'state-good'
+  } else if (fps >= 45) {
+    qualityClass = 'state-warn'
+  } else if (fps > 0) {
+    qualityClass = 'state-critical'
+  }
+  const sourceLabel = (() => {
+    switch (stats.source) {
+      case 'present_mon':
+        return 'PresentMon'
+      case 'missing_dependency':
+        return '依赖缺失'
+      default:
+        return '未接入'
+    }
+  })()
+  const detail = `来源: ${sourceLabel} · 样本 ${stats.sample_count} · 窗口 ${stats.duration_ms}ms`
+  return {
+    fpsText,
+    frameTimeText,
+    detail,
+    qualityClass
+  }
+})
+
+const temperatureGroups = computed<TemperatureGroupMap>(() => {
+  const grouped = createTemperatureGroups()
+  const temps = systemInfo.value?.temperatures ?? []
+  temps.forEach((sensor) => {
+    const category = sensor.category ?? categorizeTemperatureLabel(sensor.label)
+    grouped[category].push(sensor)
+  })
+  return grouped
+})
+
+const aggregatedTemperatureBadge = computed(() => {
+  const temps = systemInfo.value?.temperatures ?? []
+  if (!temps.length) return null
+  return buildTemperatureBadge('aggregate', '温度', temps, 'mixed')
+})
+
+const temperaturePanelPreferences = computed<TemperaturePanelPreference[]>(() => {
+  const panels = settings.value.temperaturePanels ?? []
+  return [...panels]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .filter(panel => panel.enabled)
+})
+
+const monitorModulePreferences = computed<MonitorModulePreference[]>(() => {
+  const modules = settings.value.monitorModules ?? []
+  return [...modules]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .filter(module => module.enabled)
+})
+
+const isModuleEnabledInSettings = (key: MonitorModuleKey): boolean => {
+  switch (key) {
+    case 'cpu':
+      return settings.value.enableCpuMonitor
+    case 'memory':
+      return settings.value.enableMemoryMonitor
+    case 'gpu':
+      return settings.value.enableGpuMonitor
+    case 'disk':
+      return settings.value.enableDiskMonitor
+    case 'temperature':
+      return settings.value.enableTemperatureMonitor
+    case 'frame':
+      return settings.value.enableFrameStats
+    case 'network':
+      return settings.value.enableNetworkMonitor
+    default:
+      return true
+  }
+}
+
+const activeMonitorModules = computed<MonitorModulePreference[]>(() => {
+  return monitorModulePreferences.value.filter(module => isModuleEnabledInSettings(module.key))
+})
+
+const getPanelSensors = (key: TemperaturePanelKey): { sensors: TemperatureInfo[]; category: TemperatureCategory | 'mixed' } => {
+  const groups = temperatureGroups.value
+  switch (key) {
+    case 'cpu': {
+      if (groups['cpu-package'].length) {
+        return { sensors: groups['cpu-package'], category: 'cpu-package' }
+      }
+      if (groups['cpu-core'].length) {
+        return { sensors: groups['cpu-core'], category: 'cpu-core' }
+      }
+      return { sensors: [...groups['cpu-package'], ...groups['cpu-core']], category: 'mixed' }
+    }
+    case 'memory':
+      return { sensors: groups.memory, category: 'memory' }
+    case 'gpu':
+      return { sensors: groups.gpu, category: 'gpu' }
+    case 'vrm':
+      return { sensors: groups.vrm, category: 'vrm' }
+    case 'motherboard':
+      return { sensors: groups.motherboard, category: 'motherboard' }
+    case 'storage':
+      return { sensors: groups.storage, category: 'storage' }
+    default:
+      return { sensors: [], category: 'other' }
+  }
+}
+
+const temperatureBlocks = computed<TemperatureBlock[]>(() => {
+  if (!settings.value.enableTemperatureMonitor) return []
+
+  const blocks: TemperatureBlock[] = []
+  for (const panel of temperaturePanelPreferences.value) {
+    const { sensors, category } = getPanelSensors(panel.key)
+    let badge: TemperatureBadge | null = null
+    if (sensors.length) {
+      badge = buildTemperatureBadge(panel.key, panel.label, sensors, category)
+    } else {
+      badge = {
+        key: `${panel.key}-placeholder`,
+        label: panel.label,
+        sensorLabel: panel.label,
+        value: '--',
+        detail: '未检测到对应的温度传感器',
+        category
+      }
+    }
+    if (badge) {
+      blocks.push({
+        key: `temperature-${panel.key}`,
+        label: panel.label,
+        badge
+      })
+    }
+  }
+
+  if (!blocks.length) {
+    const fallback = aggregatedTemperatureBadge.value
+    if (fallback) {
+      blocks.push({
+        key: 'temperature-fallback',
+        label: '温度',
+        badge: fallback
+      })
+    }
+  }
+
+  return blocks
+})
+
+const diskInfo = computed(() => {
+  if (!settings.value.enableDiskMonitor) {
+    return { value: '--', detail: '' }
+  }
+  const disks = systemInfo.value?.disk?.disks
+  if (!disks || !disks.length) {
+    return { value: '--', detail: '' }
+  }
+  const busiest = [...disks].sort((a, b) => b.usage_percent - a.usage_percent)[0]
+  const label = busiest.mount_point || busiest.name || 'Disk'
+  const used = systemStore.formatBytes?.(busiest.used_space) ?? ''
+  const total = systemStore.formatBytes?.(busiest.total_space) ?? ''
+  return {
+    value: `${Math.round(busiest.usage_percent)}%`,
+    detail: `${label} · ${used}/${total}`
+  }
+})
+
+const moduleDisplays = computed<ModuleDisplay[]>(() => {
+  const displays: ModuleDisplay[] = []
+
+  for (const module of activeMonitorModules.value) {
+    switch (module.key) {
+      case 'cpu': {
+        const value = settings.value.enableCpuMonitor && getCpuUsage.value !== '--'
+          ? `${getCpuUsage.value}%`
+          : '--'
+        displays.push({
+          key: 'module-cpu',
+          label: 'CPU',
+          type: 'text',
+          value,
+          valueClass: cpuStateClass.value === 'normal' ? undefined : cpuStateClass.value
+        })
+        break
+      }
+      case 'memory': {
+        const value = settings.value.enableMemoryMonitor && getMemoryUsage.value !== '--'
+          ? `${getMemoryUsage.value}%`
+          : '--'
+        displays.push({
+          key: 'module-memory',
+          label: '内存',
+          type: 'text',
+          value,
+          valueClass: memoryStateClass.value === 'normal' ? undefined : memoryStateClass.value
+        })
+        break
+      }
+      case 'gpu': {
+        const gpuValue = gpuInfo.value ? `${Math.round(gpuInfo.value.usage_percent)}%` : '--'
+        displays.push({
+          key: 'module-gpu',
+          label: 'GPU',
+          type: 'text',
+          value: gpuValue
+        })
+        break
+      }
+      case 'disk': {
+        displays.push({
+          key: 'module-disk',
+          label: '磁盘',
+          type: 'text',
+          value: diskInfo.value.value,
+          tooltip: diskInfo.value.detail
+        })
+        break
+      }
+      case 'temperature': {
+        const temps = temperatureBlocks.value
+        if (temps.length) {
+          temps.forEach((block) => {
+            displays.push({
+              key: block.key,
+              label: block.label,
+              type: 'temperature',
+              badge: block.badge
+            })
+          })
+        } else if (aggregatedTemperatureBadge.value) {
+          displays.push({
+            key: 'temperature-fallback',
+            label: '温度',
+            type: 'temperature',
+            badge: aggregatedTemperatureBadge.value
+          })
+        }
+        break
+      }
+      case 'frame': {
+        const state = frameModuleState.value
+        displays.push({
+          key: 'module-frame',
+          label: '帧率',
+          type: 'frame',
+          frame: {
+            fpsText: state.fpsText,
+            frameTimeText: state.frameTimeText,
+            detail: state.detail,
+            qualityClass: state.qualityClass
+          }
+        })
+        break
+      }
+      case 'network': {
+        displays.push({
+          key: 'module-network',
+          label: '网络',
+          type: 'network',
+          network: {
+            download: networkSpeed.value.download,
+            upload: networkSpeed.value.upload
+          }
+        })
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  if (!displays.length) {
+    displays.push({
+      key: 'module-placeholder',
+      label: '监控',
+      type: 'text',
+      value: '--',
+      valueClass: 'muted',
+      tooltip: '未启用任何监控模块'
+    })
+  }
+
+  return displays
 })
 
 const monitorOpacity = computed(() => clamp(settings.value.opacity / 100, 0.1, 1))
@@ -334,47 +748,6 @@ watch(
   { immediate: true }
 )
 
-const diskInfo = computed(() => {
-  if (!settings.value.enableDiskMonitor) {
-    return { value: '--', detail: '' }
-  }
-  const disks = systemInfo.value?.disk?.disks
-  if (!disks || !disks.length) {
-    return { value: '--', detail: '' }
-  }
-  const busiest = [...disks].sort((a, b) => b.usage_percent - a.usage_percent)[0]
-  const label = busiest.mount_point || busiest.name || 'Disk'
-  const used = systemStore.formatBytes?.(busiest.used_space) ?? ''
-  const total = systemStore.formatBytes?.(busiest.total_space) ?? ''
-  return {
-    value: `${Math.round(busiest.usage_percent)}%`,
-    detail: `${label} · ${used}/${total}`
-  }
-})
-
-const temperatureInfo = computed(() => {
-  if (!settings.value.enableTemperatureMonitor) {
-    return { value: '--', detail: '' }
-  }
-  const temps = systemInfo.value?.temperatures
-  if (!temps || !temps.length) {
-    return { value: '--', detail: '' }
-  }
-  const hottest = temps.reduce((max, current) => {
-    return current.temperature > max.temperature ? current : max
-  })
-  const formatted = systemStore.formatTemperature?.(hottest.temperature) ?? `${hottest.temperature.toFixed(1)}°C`
-  const extra: string[] = []
-  if (hottest.max) extra.push(`Max ${hottest.max.toFixed(0)}°C`)
-  if (hottest.critical) extra.push(`Critical ${hottest.critical.toFixed(0)}°C`)
-  return {
-    value: formatted,
-    detail: `${hottest.label}${extra.length ? ` · ${extra.join(' / ')}` : ''}`
-  }
-})
-
-const showNetwork = computed(() => settings.value.enableNetworkMonitor && !!systemInfo.value?.network)
-
 const handleContextMenu = (e: MouseEvent) => {
   e.preventDefault()
 }
@@ -491,6 +864,42 @@ onUnmounted(() => {
 .network-download,
 .network-upload {
   letter-spacing: 0.2px;
+}
+
+.temperature-breakdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.frame-stats {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.frame-stats small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.frame-stats.state-good {
+  color: #4ade80;
+}
+
+.frame-stats.state-warn {
+  color: #f97316;
+}
+
+.frame-stats.state-critical {
+  color: #f43f5e;
+}
+
+.frame-stats.state-idle {
+  opacity: 0.75;
 }
 
 @keyframes spin {

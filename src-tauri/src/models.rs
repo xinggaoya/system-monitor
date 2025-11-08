@@ -117,6 +117,8 @@ pub struct TemperatureInfo {
     pub max: Option<f32>,
     /// 临界温度（摄氏度）
     pub critical: Option<f32>,
+    /// 归类信息（前端用于分组）
+    pub category: Option<String>,
 }
 
 /// GPU信息
@@ -143,6 +145,30 @@ pub struct GpuMemoryInfo {
     pub used: u64,
     /// 使用率（百分比）
     pub usage_percent: f32,
+}
+
+/// 帧率统计
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FrameStats {
+    /// 平均帧率
+    pub average_fps: f32,
+    /// 采样数量
+    pub sample_count: u32,
+    /// 采集时长（毫秒）
+    pub duration_ms: u64,
+    /// 时间戳（毫秒）
+    pub timestamp: u64,
+    /// 数据来源
+    pub source: FrameDataSource,
+}
+
+/// 帧率数据来源
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FrameDataSource {
+    PresentMon,
+    Unsupported,
+    MissingDependency,
 }
 
 /// 监控配置
@@ -276,30 +302,41 @@ impl SystemInfoDelta {
             None
         };
 
-        let disk = if !old.disk.disks.is_empty() && !new.disk.disks.is_empty() {
-            // 简单比较磁盘数量和使用率变化
-            if old.disk.disks.len() != new.disk.disks.len() ||
-               old.disk.disks.iter().zip(new.disk.disks.iter())
-                   .any(|(old_disk, new_disk)| (old_disk.usage_percent - new_disk.usage_percent).abs() > 1.0) {
-                Some(new.disk.clone())
+        let disk =
+            if !old.disk.disks.is_empty() && !new.disk.disks.is_empty() {
+                // 简单比较磁盘数量和使用率变化
+                if old.disk.disks.len() != new.disk.disks.len()
+                    || old.disk.disks.iter().zip(new.disk.disks.iter()).any(
+                        |(old_disk, new_disk)| {
+                            (old_disk.usage_percent - new_disk.usage_percent).abs() > 1.0
+                        },
+                    )
+                {
+                    Some(new.disk.clone())
+                } else {
+                    None
+                }
             } else {
                 None
-            }
-        } else {
-            None
-        };
+            };
 
-        let system = if old.system.cpu_count != new.system.cpu_count ||
-                       old.system.cpu_brand != new.system.cpu_brand ||
-                       old.system.cpu_frequency != new.system.cpu_frequency {
+        let system = if old.system.cpu_count != new.system.cpu_count
+            || old.system.cpu_brand != new.system.cpu_brand
+            || old.system.cpu_frequency != new.system.cpu_frequency
+        {
             Some(new.system.clone())
         } else {
             None
         };
 
-        let temperatures = if old.temperatures.len() != new.temperatures.len() ||
-                           old.temperatures.iter().zip(new.temperatures.iter())
-                               .any(|(old_temp, new_temp)| (old_temp.temperature - new_temp.temperature).abs() > 1.0) {
+        let temperatures = if old.temperatures.len() != new.temperatures.len()
+            || old
+                .temperatures
+                .iter()
+                .zip(new.temperatures.iter())
+                .any(|(old_temp, new_temp)| {
+                    (old_temp.temperature - new_temp.temperature).abs() > 1.0
+                }) {
             Some(new.temperatures.clone())
         } else {
             None
@@ -320,12 +357,12 @@ impl SystemInfoDelta {
     /// 检查是否为空更新（没有实际变化）
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
-        self.cpu_usage.is_none() &&
-        self.memory.is_none() &&
-        self.network.is_none() &&
-        self.disk.is_none() &&
-        self.system.is_none() &&
-        self.temperatures.is_none() &&
-        self.full_data.is_none()
+        self.cpu_usage.is_none()
+            && self.memory.is_none()
+            && self.network.is_none()
+            && self.disk.is_none()
+            && self.system.is_none()
+            && self.temperatures.is_none()
+            && self.full_data.is_none()
     }
 }

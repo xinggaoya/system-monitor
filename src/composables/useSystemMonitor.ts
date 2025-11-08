@@ -9,6 +9,7 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
   const isPolling = ref(false)
   const pollDelay = ref(interval)
   let pollInterval: number | null = null
+  let lastFrameSample = 0
 
   // 获取store的响应式引用
   const {
@@ -21,8 +22,18 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
     cpuUsageText,
     formattedMemory,
     networkSpeed,
-    highestTemperature
+    highestTemperature,
+    frameStats,
+    frameError
   } = toRefs(systemStore)
+
+  const maybeFetchFrameStats = async () => {
+    if (!settings.value.enableFrameStats) return
+    const now = Date.now()
+    if (now - lastFrameSample < Math.max(pollDelay.value, 1200)) return
+    lastFrameSample = now
+    await systemStore.fetchFrameStats()
+  }
 
   // 开始轮询
   const startPolling = () => {
@@ -33,6 +44,9 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
       await systemStore.fetchSystemInfo()
       if (Math.random() < 0.2) {
         await systemStore.fetchGpuInfo()
+      }
+      if (settings.value.enableFrameStats) {
+        await maybeFetchFrameStats()
       }
     }, pollDelay.value)
   }
@@ -59,6 +73,7 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
   const refresh = async () => {
     await systemStore.fetchSystemInfo()
     await systemStore.fetchGpuInfo()
+    await maybeFetchFrameStats()
   }
 
   // 更新轮询间隔
@@ -77,6 +92,17 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
     () => settings.value.refreshInterval,
     (newInterval) => {
       updateInterval(newInterval)
+    },
+    { immediate: true }
+  )
+
+  watch(
+    () => settings.value.enableFrameStats,
+    async (enabled) => {
+      if (enabled) {
+        lastFrameSample = 0
+        await maybeFetchFrameStats()
+      }
     },
     { immediate: true }
   )
@@ -115,6 +141,8 @@ export function useSystemMonitor(autoStart = true, interval = 1000) {
     cpuUsageText,
     formattedMemory,
     networkSpeed,
-    highestTemperature
+    highestTemperature,
+    frameStats,
+    frameError
   }
 }

@@ -3,8 +3,8 @@
 
 #![allow(dead_code)]
 
-use std::time::{Duration, Instant};
 use crate::models::*;
+use std::time::{Duration, Instant};
 
 /// 从 RefreshStrategyType 转换为 RefreshStrategy
 impl From<RefreshStrategyType> for RefreshStrategy {
@@ -19,26 +19,22 @@ impl From<RefreshStrategyType> for RefreshStrategy {
                 cpu_threshold,
                 memory_threshold,
                 change_threshold,
-            } => {
-                RefreshStrategy::Adaptive {
-                    min_interval: Duration::from_millis(min_interval_ms),
-                    max_interval: Duration::from_millis(max_interval_ms),
-                    cpu_threshold,
-                    memory_threshold,
-                    change_threshold,
-                }
-            }
+            } => RefreshStrategy::Adaptive {
+                min_interval: Duration::from_millis(min_interval_ms),
+                max_interval: Duration::from_millis(max_interval_ms),
+                cpu_threshold,
+                memory_threshold,
+                change_threshold,
+            },
             RefreshStrategyType::PowerSaving {
                 base_interval_ms,
                 idle_interval_ms,
                 active_interval_ms,
-            } => {
-                RefreshStrategy::PowerSaving {
-                    base_interval: Duration::from_millis(base_interval_ms),
-                    idle_interval: Duration::from_millis(idle_interval_ms),
-                    active_interval: Duration::from_millis(active_interval_ms),
-                }
-            }
+            } => RefreshStrategy::PowerSaving {
+                base_interval: Duration::from_millis(base_interval_ms),
+                idle_interval: Duration::from_millis(idle_interval_ms),
+                active_interval: Duration::from_millis(active_interval_ms),
+            },
         }
     }
 }
@@ -169,22 +165,24 @@ impl AdaptiveRefreshManager {
                 let memory_load = current_info.memory.usage_percent;
 
                 // 根据负载调整频率
-                let target_interval = if cpu_load > *cpu_threshold || memory_load > *memory_threshold {
-                    // 高负载：更频繁刷新
-                    *min_interval
-                } else if change_rate < *change_threshold {
-                    // 低变化：降低刷新频率
-                    *max_interval
-                } else {
-                    // 中等负载：自适应调整
-                    let load_factor = (cpu_load / 100.0).max(memory_load / 100.0);
-                    *min_interval + (*max_interval - *min_interval).mul_f32(1.0 - load_factor)
-                };
+                let target_interval =
+                    if cpu_load > *cpu_threshold || memory_load > *memory_threshold {
+                        // 高负载：更频繁刷新
+                        *min_interval
+                    } else if change_rate < *change_threshold {
+                        // 低变化：降低刷新频率
+                        *max_interval
+                    } else {
+                        // 中等负载：自适应调整
+                        let load_factor = (cpu_load / 100.0).max(memory_load / 100.0);
+                        *min_interval + (*max_interval - *min_interval).mul_f32(1.0 - load_factor)
+                    };
 
                 // 平滑调整，避免频繁大幅变化
                 let smoothing_factor = 0.3;
                 let current_interval = self.history.current_interval;
-                let new_interval = current_interval.mul_f32(1.0 - smoothing_factor) + target_interval.mul_f32(smoothing_factor);
+                let new_interval = current_interval.mul_f32(1.0 - smoothing_factor)
+                    + target_interval.mul_f32(smoothing_factor);
 
                 new_interval.clamp(*min_interval, *max_interval)
             }
@@ -199,7 +197,8 @@ impl AdaptiveRefreshManager {
                 } else {
                     // 空闲时间越长，刷新间隔越长
                     let idle_factor = (self.history.idle_duration.as_secs_f32() / 60.0).min(1.0);
-                    let interval = *active_interval + (*idle_interval - *active_interval).mul_f32(idle_factor);
+                    let interval =
+                        *active_interval + (*idle_interval - *active_interval).mul_f32(idle_factor);
                     interval.max(*base_interval)
                 }
             }
@@ -215,14 +214,23 @@ impl AdaptiveRefreshManager {
         if let Some(ref last_info) = self.history.last_system_state {
             // 计算各组件的变化
             let cpu_change = (current_info.cpu_usage - last_info.cpu_usage).abs();
-            let memory_change = (current_info.memory.usage_percent - last_info.memory.usage_percent).abs();
+            let memory_change =
+                (current_info.memory.usage_percent - last_info.memory.usage_percent).abs();
 
             // 计算网络变化（速率变化）
-            let network_change = if !current_info.network.interfaces.is_empty() && !last_info.network.interfaces.is_empty() {
-                let current_total_rate: f64 = current_info.network.interfaces.iter()
+            let network_change = if !current_info.network.interfaces.is_empty()
+                && !last_info.network.interfaces.is_empty()
+            {
+                let current_total_rate: f64 = current_info
+                    .network
+                    .interfaces
+                    .iter()
                     .map(|iface| iface.receive_rate + iface.transmit_rate)
                     .sum();
-                let last_total_rate: f64 = last_info.network.interfaces.iter()
+                let last_total_rate: f64 = last_info
+                    .network
+                    .interfaces
+                    .iter()
                     .map(|iface| iface.receive_rate + iface.transmit_rate)
                     .sum();
                 (current_total_rate - last_total_rate).abs() as f32 / 1024.0 // 转换为KB/s
@@ -231,16 +239,22 @@ impl AdaptiveRefreshManager {
             };
 
             // 计算温度变化
-            let temp_change = if !current_info.temperatures.is_empty() && !last_info.temperatures.is_empty() {
-                current_info.temperatures.iter().zip(last_info.temperatures.iter())
-                    .map(|(curr, last)| (curr.temperature - last.temperature).abs())
-                    .sum::<f32>() / current_info.temperatures.len() as f32
-            } else {
-                0.0
-            };
+            let temp_change =
+                if !current_info.temperatures.is_empty() && !last_info.temperatures.is_empty() {
+                    current_info
+                        .temperatures
+                        .iter()
+                        .zip(last_info.temperatures.iter())
+                        .map(|(curr, last)| (curr.temperature - last.temperature).abs())
+                        .sum::<f32>()
+                        / current_info.temperatures.len() as f32
+                } else {
+                    0.0
+                };
 
             // 综合变化率（加权平均）
-            let total_change = cpu_change * 0.4 + memory_change * 0.3 + network_change * 0.2 + temp_change * 0.1;
+            let total_change =
+                cpu_change * 0.4 + memory_change * 0.3 + network_change * 0.2 + temp_change * 0.1;
 
             // 更新变化历史
             self.history.change_history.push(total_change);
@@ -261,7 +275,8 @@ impl AdaptiveRefreshManager {
     /// 更新历史记录
     fn update_history(&mut self, current_info: &SystemInfo, interval: Duration, now: Instant) {
         // 检测高负载状态
-        let is_high_load = current_info.cpu_usage > 80.0 || current_info.memory.usage_percent > 85.0;
+        let is_high_load =
+            current_info.cpu_usage > 80.0 || current_info.memory.usage_percent > 85.0;
 
         if is_high_load && !self.high_load {
             self.high_load = true;
@@ -289,7 +304,9 @@ impl AdaptiveRefreshManager {
     /// 检查是否应该跳过本次刷新
     pub fn should_skip_refresh(&self) -> bool {
         match &self.strategy {
-            RefreshStrategy::Adaptive { change_threshold, .. } => {
+            RefreshStrategy::Adaptive {
+                change_threshold, ..
+            } => {
                 // 如果系统非常稳定且长时间低负载，可以跳过刷新
                 self.history.average_change_rate < change_threshold / 2.0
                     && !self.high_load
@@ -317,7 +334,8 @@ impl AdaptiveRefreshManager {
             user_active: self.history.user_active,
             idle_duration: self.history.idle_duration,
             last_high_load: self.last_high_load,
-        }.into()
+        }
+        .into()
     }
 
     /// 重置历史记录
@@ -353,12 +371,16 @@ impl From<RefreshStatisticsInternal> for RefreshStatistics {
             high_load: internal.high_load,
             user_active: internal.user_active,
             idle_duration_ms: internal.idle_duration.as_millis() as u64,
-            last_high_load_timestamp_ms: internal.last_high_load
-                .map(|time| {
-                    let duration = time.duration_since(std::time::Instant::now() - std::time::Duration::from_secs(86400));
-                    let system_time = std::time::SystemTime::now() - duration;
-                    system_time.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
-                }),
+            last_high_load_timestamp_ms: internal.last_high_load.map(|time| {
+                let duration = time.duration_since(
+                    std::time::Instant::now() - std::time::Duration::from_secs(86400),
+                );
+                let system_time = std::time::SystemTime::now() - duration;
+                system_time
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64
+            }),
         }
     }
 }

@@ -27,6 +27,8 @@
 - 🌐 **跨平台支持**: 支持 Windows、macOS 和 Linux 三大平台
 - 📊 **详细网络监控**: 实时网络流量监控，支持上下载速度显示
 - 🎮 **GPU 监控**: 支持 NVIDIA GPU 监控（需要 NVML 库）
+- 🌡️ **温度分组监控**: 自动区分 CPU 包/核心、内存、GPU 等热点传感器
+- 🎯 **帧率捕获（Windows + PresentMon）**: 调用 Intel PresentMon 采集真实帧率，若未安装则优雅降级为提示信息
 - 🔧 **高度可配置**: 支持自定义刷新频率、显示选项和外观设置
 
 ## 📸 截图预览
@@ -92,6 +94,16 @@ pnpm tauri build --target x86_64-unknown-linux-gnu # Linux
 ```
 
 构建产物将生成在 `src-tauri/target/release/bundle/` 目录中。
+
+### Windows 帧率采集（可选）
+
+帧率模块依赖 [Intel PresentMon](https://www.intel.com/content/www/us/en/download/705483/presentmon.html) 获取真实 FPS，配置步骤如下：
+
+1. 下载并解压最新 `PresentMon.exe`
+2. 将所在目录加入 `PATH`，或设置环境变量 `PRESENTMON_PATH=C:\Tools\PresentMon\PresentMon.exe`
+3. 重启 System Monitor，在设置 → “显示模块” 中开启“帧率”，即可看到实时 FPS/帧时间
+
+> 目前仅 Windows 支持帧率采集；macOS / Linux 会显示“未接入”提示，不会展示模拟数据。
 
 ## 📥 下载安装
 

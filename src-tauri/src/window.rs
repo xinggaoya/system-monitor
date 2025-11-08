@@ -2,8 +2,8 @@
 //!
 //! 负责管理应用窗口的显示、隐藏、创建和销毁等操作
 
-use tauri::{WebviewWindowBuilder, WebviewUrl, Manager};
 use log::{debug, error};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// 切换主窗口的显示/隐藏状态
 ///
@@ -101,7 +101,7 @@ pub async fn show_settings_window(app_handle: tauri::AppHandle) -> Result<(), St
                     })?;
                     debug!("设置窗口已显示并获得焦点");
                     Ok(())
-                }
+                };
             }
             Err(e) => {
                 error!("检查设置窗口可见性失败: {}", e);
@@ -117,12 +117,12 @@ pub async fn show_settings_window(app_handle: tauri::AppHandle) -> Result<(), St
     let webview_url = WebviewUrl::App("/settings".into());
     let window = WebviewWindowBuilder::new(&app_handle, "settings", webview_url)
         .title("系统监控设置")
-        .inner_size(800.0, 600.0)          // 初始大小
-        .min_inner_size(600.0, 400.0)      // 最小大小
-        .resizable(true)                   // 可调整大小
-        .decorations(true)                 // 显示标题栏
-        .shadow(true)                      // 显示阴影
-        .center()                          // 居中显示
+        .inner_size(800.0, 600.0) // 初始大小
+        .min_inner_size(600.0, 400.0) // 最小大小
+        .resizable(true) // 可调整大小
+        .decorations(true) // 显示标题栏
+        .shadow(true) // 显示阴影
+        .center() // 居中显示
         .build()
         .map_err(|e| {
             error!("创建设置窗口失败: {}", e);

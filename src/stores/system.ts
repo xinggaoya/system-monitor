@@ -59,11 +59,22 @@ export interface SystemDetails {
   cpu_frequency?: number
 }
 
+export type TemperatureCategory =
+  | 'cpu-package'
+  | 'cpu-core'
+  | 'memory'
+  | 'gpu'
+  | 'motherboard'
+  | 'vrm'
+  | 'storage'
+  | 'other'
+
 export interface TemperatureInfo {
   label: string
   temperature: number
   max?: number
   critical?: number
+  category?: TemperatureCategory
 }
 
 export interface GpuInfo {
@@ -78,6 +89,16 @@ export interface GpuMemoryInfo {
   total: number
   used: number
   usage_percent: number
+}
+
+export type FrameDataSource = 'present_mon' | 'unsupported' | 'missing_dependency'
+
+export interface FrameStats {
+  average_fps: number
+  sample_count: number
+  duration_ms: number
+  timestamp: number
+  source: FrameDataSource
 }
 
 export type FixedRefreshStrategy = {
@@ -149,6 +170,8 @@ export const useSystemStore = defineStore('system', () => {
   const lastUpdate = ref<Date | null>(null)
   const config = ref<MonitorConfig>(createDefaultMonitorConfig())
   const error = ref<string | null>(null)
+  const frameStats = ref<FrameStats | null>(null)
+  const frameError = ref<string | null>(null)
 
   // 计算属性
   const memoryUsageText = computed(() => {
@@ -191,6 +214,17 @@ export const useSystemStore = defineStore('system', () => {
     if (!systemInfo.value?.temperatures.length) return null
     return Math.max(...systemInfo.value.temperatures.map(t => t.temperature))
   })
+
+  const fetchFrameStats = async () => {
+    try {
+      frameError.value = null
+      const stats = await invoke<FrameStats>('get_frame_stats')
+      frameStats.value = stats
+    } catch (err) {
+      console.error('获取帧率信息失败:', err)
+      frameError.value = String(err)
+    }
+  }
 
   // 方法
   const fetchSystemInfo = async () => {
@@ -317,6 +351,8 @@ export const useSystemStore = defineStore('system', () => {
     lastUpdate,
     config,
     error,
+    frameStats,
+    frameError,
 
     // 计算属性
     memoryUsageText,
@@ -328,6 +364,7 @@ export const useSystemStore = defineStore('system', () => {
     // 方法
     fetchSystemInfo,
     fetchGpuInfo,
+    fetchFrameStats,
     getCurrentData,
     updateConfig,
     startMonitoring,

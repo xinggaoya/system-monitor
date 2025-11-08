@@ -2,13 +2,13 @@
 //!
 //! 负责创建和管理系统托盘图标、菜单以及相关事件处理
 
+use crate::window::{show_settings_window, toggle_window_internal};
+use log::{debug, error, info};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle,
 };
-use log::{info, debug, error};
-use crate::window::{toggle_window_internal, show_settings_window};
 
 /// 创建并初始化系统托盘
 ///

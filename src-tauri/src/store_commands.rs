@@ -2,11 +2,11 @@
 //!
 //! 负责处理应用设置和数据的持久化存储操作
 
-use tauri::AppHandle;
-use tauri_plugin_store::StoreExt;
+use log::{debug, error, info};
 use serde_json::Value;
 use std::collections::HashMap;
-use log::{info, debug, error};
+use tauri::AppHandle;
+use tauri_plugin_store::StoreExt;
 
 /// 保存设置到Store
 ///
@@ -18,27 +18,21 @@ use log::{info, debug, error};
 /// # Returns
 /// * `Result<(), String>` - 保存成功或错误信息
 #[tauri::command]
-pub async fn save_settings(
-    app_handle: AppHandle,
-    key: String,
-    value: Value,
-) -> Result<(), String> {
+pub async fn save_settings(app_handle: AppHandle, key: String, value: Value) -> Result<(), String> {
     // 获取或创建存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 设置键值对
     store.set(&key, value);
 
     // 保存到磁盘
-    store.save()
-        .map_err(|e| {
-            error!("保存设置失败: {}", e);
-            e.to_string()
-        })?;
+    store.save().map_err(|e| {
+        error!("保存设置失败: {}", e);
+        e.to_string()
+    })?;
 
     debug!("设置 '{}' 已成功保存", key);
     Ok(())
@@ -53,16 +47,12 @@ pub async fn save_settings(
 /// # Returns
 /// * `Result<Option<Value>, String>` - 设置值或错误信息
 #[tauri::command]
-pub async fn get_settings(
-    app_handle: AppHandle,
-    key: String,
-) -> Result<Option<Value>, String> {
+pub async fn get_settings(app_handle: AppHandle, key: String) -> Result<Option<Value>, String> {
     // 获取存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 获取指定键的值
     let value = store.get(&key);
@@ -79,15 +69,12 @@ pub async fn get_settings(
 /// # Returns
 /// * `Result<HashMap<String, Value>, String>` - 所有设置项或错误信息
 #[tauri::command]
-pub async fn get_all_settings(
-    app_handle: AppHandle,
-) -> Result<HashMap<String, Value>, String> {
+pub async fn get_all_settings(app_handle: AppHandle) -> Result<HashMap<String, Value>, String> {
     // 获取存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 获取所有键值对
     let store_data = store.entries();
@@ -111,16 +98,12 @@ pub async fn get_all_settings(
 /// # Returns
 /// * `Result<(), String>` - 删除成功或错误信息
 #[tauri::command]
-pub async fn delete_settings(
-    app_handle: AppHandle,
-    key: String,
-) -> Result<(), String> {
+pub async fn delete_settings(app_handle: AppHandle, key: String) -> Result<(), String> {
     // 获取存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 检查键是否存在
     if store.get(&key).is_some() {
@@ -128,11 +111,10 @@ pub async fn delete_settings(
         store.delete(&key);
 
         // 保存更改到磁盘
-        store.save()
-            .map_err(|e| {
-                error!("保存更改失败: {}", e);
-                e.to_string()
-            })?;
+        store.save().map_err(|e| {
+            error!("保存更改失败: {}", e);
+            e.to_string()
+        })?;
 
         debug!("设置 '{}' 已成功删除", key);
     } else {
@@ -156,11 +138,10 @@ pub async fn update_multiple_settings(
     settings: HashMap<String, Value>,
 ) -> Result<(), String> {
     // 获取存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 批量更新设置项
     for (key, value) in settings {
@@ -168,11 +149,10 @@ pub async fn update_multiple_settings(
     }
 
     // 保存更改到磁盘
-    store.save()
-        .map_err(|e| {
-            error!("保存批量设置失败: {}", e);
-            e.to_string()
-        })?;
+    store.save().map_err(|e| {
+        error!("保存批量设置失败: {}", e);
+        e.to_string()
+    })?;
 
     info!("批量设置更新成功，共 {} 项", store.entries().len());
     Ok(())
@@ -188,11 +168,10 @@ pub async fn update_multiple_settings(
 #[tauri::command]
 pub async fn clear_all_settings(app_handle: AppHandle) -> Result<(), String> {
     // 获取存储实例
-    let store = app_handle.store("settings.json")
-        .map_err(|e| {
-            error!("获取存储实例失败: {}", e);
-            e.to_string()
-        })?;
+    let store = app_handle.store("settings.json").map_err(|e| {
+        error!("获取存储实例失败: {}", e);
+        e.to_string()
+    })?;
 
     // 获取所有键并清空
     let entries = store.entries();
@@ -201,11 +180,10 @@ pub async fn clear_all_settings(app_handle: AppHandle) -> Result<(), String> {
     }
 
     // 保存更改到磁盘
-    store.save()
-        .map_err(|e| {
-            error!("清空设置保存失败: {}", e);
-            e.to_string()
-        })?;
+    store.save().map_err(|e| {
+        error!("清空设置保存失败: {}", e);
+        e.to_string()
+    })?;
 
     info!("所有设置已清空");
     Ok(())

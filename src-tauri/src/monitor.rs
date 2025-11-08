@@ -1,16 +1,15 @@
-use crate::models::*;
-use crate::gpu_monitor::GpuMonitor;
-use crate::retry::{RetryManager, RetryConfig};
-use crate::errors::MonitorError;
 use crate::adaptive_refresh::{AdaptiveRefreshManager, RefreshStatistics};
-use sysinfo::{
-    Components, Disks, Networks, System, ProcessesToUpdate,
-};
+use crate::errors::MonitorError;
+use crate::frame_monitor::FrameMonitor;
+use crate::gpu_monitor::GpuMonitor;
+use crate::models::*;
+use crate::retry::{RetryConfig, RetryManager};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use tokio::time::sleep;
+use std::time::{Duration, Instant};
+use sysinfo::{Components, Disks, Networks, ProcessesToUpdate, System};
 use tokio::sync::RwLock;
+use tokio::time::sleep;
 
 // 简化复杂类型的定义
 type NetworkDataMap = HashMap<String, (u64, u64, Instant)>;
@@ -21,6 +20,7 @@ pub struct SystemMonitor {
     last_network_data: Arc<Mutex<NetworkDataMap>>,
     config: MonitorConfig,
     gpu_monitor: GpuMonitor,
+    frame_monitor: FrameMonitor,
     #[allow(dead_code)]
     retry_manager: RetryManager,
     adaptive_refresh: AdaptiveRefreshManager,
@@ -52,6 +52,7 @@ impl SystemMonitor {
             last_network_data: Arc::new(Mutex::new(HashMap::new())),
             config,
             gpu_monitor,
+            frame_monitor: FrameMonitor::new(),
             retry_manager: RetryManager::new(RetryConfig::default()),
             adaptive_refresh,
         }
@@ -167,7 +168,8 @@ impl SystemMonitor {
     pub fn update_config(&mut self, config: MonitorConfig) {
         self.config = config.clone();
         // 更新自适应刷新策略
-        self.adaptive_refresh.update_strategy(config.refresh_strategy.into());
+        self.adaptive_refresh
+            .update_strategy(config.refresh_strategy.into());
     }
 
     /// 获取CPU使用率
@@ -220,18 +222,23 @@ impl SystemMonitor {
             total_transmitted += transmitted;
 
             // 计算速率
-            let (receive_rate, transmit_rate) = if let Some((last_received, last_transmitted, last_time)) = last_data.get(interface_name) {
-                let duration = current_time.duration_since(*last_time);
-                if duration.as_secs_f64() > 0.0 {
-                    let receive_rate = (received.saturating_sub(*last_received) as f64) / duration.as_secs_f64();
-                    let transmit_rate = (transmitted.saturating_sub(*last_transmitted) as f64) / duration.as_secs_f64();
-                    (receive_rate, transmit_rate)
+            let (receive_rate, transmit_rate) =
+                if let Some((last_received, last_transmitted, last_time)) =
+                    last_data.get(interface_name)
+                {
+                    let duration = current_time.duration_since(*last_time);
+                    if duration.as_secs_f64() > 0.0 {
+                        let receive_rate = (received.saturating_sub(*last_received) as f64)
+                            / duration.as_secs_f64();
+                        let transmit_rate = (transmitted.saturating_sub(*last_transmitted) as f64)
+                            / duration.as_secs_f64();
+                        (receive_rate, transmit_rate)
+                    } else {
+                        (0.0, 0.0)
+                    }
                 } else {
                     (0.0, 0.0)
-                }
-            } else {
-                (0.0, 0.0)
-            };
+                };
 
             interfaces.push(NetworkInterface {
                 name: interface_name.clone(),
@@ -242,7 +249,10 @@ impl SystemMonitor {
             });
 
             // 更新最后记录的数据
-            last_data.insert(interface_name.clone(), (received, transmitted, current_time));
+            last_data.insert(
+                interface_name.clone(),
+                (received, transmitted, current_time),
+            );
         }
 
         NetworkInfo {
@@ -308,11 +318,41 @@ impl SystemMonitor {
                     temperature: temp,
                     max: component.max(),
                     critical: component.critical(),
+                    category: Some(Self::classify_temperature_category(component.label())),
                 });
             }
         }
 
         temperatures
+    }
+
+    fn classify_temperature_category(label: &str) -> String {
+        let normalized = label.to_lowercase();
+        let contains = |keywords: &[&str]| keywords.iter().any(|k| normalized.contains(k));
+
+        if normalized.contains("cpu") && contains(&["package", "tdie", "tctl", "socket", "die"]) {
+            return "cpu-package".to_string();
+        }
+        if normalized.contains("cpu") && contains(&["core", "#", "ccd", "ccx", "thread", "l3"]) {
+            return "cpu-core".to_string();
+        }
+        if contains(&["dimm", "memory", "ram"]) {
+            return "memory".to_string();
+        }
+        if contains(&["gpu", "graphics", "video"]) {
+            return "gpu".to_string();
+        }
+        if contains(&["vrm", "vcore", "soc"]) {
+            return "vrm".to_string();
+        }
+        if contains(&["pch", "chipset", "motherboard", "board"]) {
+            return "motherboard".to_string();
+        }
+        if contains(&["nvme", "ssd", "hdd", "m.2", "m2", "drive", "storage"]) {
+            return "storage".to_string();
+        }
+
+        "other".to_string()
     }
 
     /// 获取GPU信息
@@ -322,6 +362,14 @@ impl SystemMonitor {
         } else {
             None
         }
+    }
+
+    /// 获取帧率信息
+    pub async fn capture_frame_stats(
+        &self,
+        duration: Duration,
+    ) -> Result<FrameStats, MonitorError> {
+        self.frame_monitor.capture_frame_stats(duration).await
     }
 
     /// 获取GPU监控器状态信息
@@ -338,14 +386,13 @@ impl SystemMonitor {
 
     /// 获取详细GPU信息
     pub fn get_detailed_gpu_info(&self, device_index: u32) -> Result<String, String> {
-        self.gpu_monitor.get_detailed_gpu_info(device_index)
+        self.gpu_monitor
+            .get_detailed_gpu_info(device_index)
             .map_err(|e| e.to_string())
     }
 
-  
     /// 获取当前配置
     pub fn get_config(&self) -> &MonitorConfig {
         &self.config
     }
 }
-

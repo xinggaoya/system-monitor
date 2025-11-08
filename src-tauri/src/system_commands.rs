@@ -2,11 +2,12 @@
 //!
 //! 负责处理系统监控、GPU信息和智能刷新等系统相关命令
 
-use crate::models::*;
-use tauri::State;
-use std::sync::Arc;
 use crate::adaptive_refresh;
-use log::{info, debug, error, warn};
+use crate::models::*;
+use log::{debug, error, info, warn};
+use std::sync::Arc;
+use std::time::Duration;
+use tauri::State;
 
 /// 获取系统信息（异步版本，提升性能，优化内存使用，增强错误处理）
 ///
@@ -20,7 +21,9 @@ pub async fn get_system_info(state: State<'_, crate::AppState>) -> Result<System
     // 异步刷新系统信息
     let system_info = {
         let mut monitor = state.monitor.write().await;
-        monitor.refresh().await // 使用异步 refresh 方法
+        monitor
+            .refresh()
+            .await // 使用异步 refresh 方法
             .map_err(|e| {
                 error!("刷新系统信息失败: {}", e);
                 e.to_string()
@@ -36,6 +39,19 @@ pub async fn get_system_info(state: State<'_, crate::AppState>) -> Result<System
 
     debug!("系统信息获取成功");
     Ok(system_info)
+}
+
+/// 获取帧率信息（仅 Windows 支持 PresentMon）
+#[tauri::command]
+pub async fn get_frame_stats(state: State<'_, crate::AppState>) -> Result<FrameStats, String> {
+    let monitor = state.monitor.read().await;
+    monitor
+        .capture_frame_stats(Duration::from_secs(1))
+        .await
+        .map_err(|err| {
+            error!("获取帧率信息失败: {}", err);
+            err.to_string()
+        })
 }
 
 /// 获取GPU信息
@@ -61,7 +77,9 @@ pub async fn get_gpu_info(state: State<'_, crate::AppState>) -> Result<Option<Gp
 /// # Returns
 /// * `Result<(bool, Option<String>), String>` - GPU监控状态和相关信息
 #[tauri::command]
-pub async fn get_gpu_monitor_status(state: State<'_, crate::AppState>) -> Result<(bool, Option<String>), String> {
+pub async fn get_gpu_monitor_status(
+    state: State<'_, crate::AppState>,
+) -> Result<(bool, Option<String>), String> {
     let monitor = state.monitor.read().await;
     let (enabled, error) = monitor.get_gpu_monitor_status();
     debug!("GPU监控状态: 启用={}, 错误={:?}", enabled, error);
@@ -94,7 +112,7 @@ pub async fn get_gpu_names(state: State<'_, crate::AppState>) -> Result<Vec<Stri
 #[tauri::command]
 pub async fn get_detailed_gpu_info(
     device_index: u32,
-    state: State<'_, crate::AppState>
+    state: State<'_, crate::AppState>,
 ) -> Result<String, String> {
     let monitor = state.monitor.read().await;
     match monitor.get_detailed_gpu_info(device_index) {
@@ -117,7 +135,9 @@ pub async fn get_detailed_gpu_info(
 /// # Returns
 /// * `Result<Option<SystemInfo>, String>` - 当前系统数据或错误信息
 #[tauri::command]
-pub async fn get_current_data(state: State<'_, crate::AppState>) -> Result<Option<SystemInfo>, String> {
+pub async fn get_current_data(
+    state: State<'_, crate::AppState>,
+) -> Result<Option<SystemInfo>, String> {
     let current_data = state.current_data.read().await;
     // 如果有数据，返回 Arc 内部数据的克隆，这比完全克隆更高效
     let result = current_data.as_ref().map(|arc| (**arc).clone());
@@ -133,15 +153,16 @@ pub async fn get_current_data(state: State<'_, crate::AppState>) -> Result<Optio
 /// # Returns
 /// * `Result<SystemInfoDelta, String>` - 增量更新数据或错误信息
 #[tauri::command]
-pub async fn get_system_info_delta(state: State<'_, crate::AppState>) -> Result<SystemInfoDelta, String> {
+pub async fn get_system_info_delta(
+    state: State<'_, crate::AppState>,
+) -> Result<SystemInfoDelta, String> {
     // 异步刷新系统信息
     let system_info = {
         let mut monitor = state.monitor.write().await;
-        monitor.refresh().await
-            .map_err(|e| {
-                error!("刷新系统信息失败: {}", e);
-                e.to_string()
-            })?
+        monitor.refresh().await.map_err(|e| {
+            error!("刷新系统信息失败: {}", e);
+            e.to_string()
+        })?
     };
 
     // 优化内存使用：使用 Arc 共享数据
@@ -189,7 +210,7 @@ pub async fn get_system_info_delta(state: State<'_, crate::AppState>) -> Result<
 #[tauri::command]
 pub async fn update_monitor_config(
     config: MonitorConfig,
-    state: State<'_, crate::AppState>
+    state: State<'_, crate::AppState>,
 ) -> Result<(), String> {
     let mut monitor = state.monitor.write().await;
     monitor.update_config(config);
@@ -205,7 +226,9 @@ pub async fn update_monitor_config(
 /// # Returns
 /// * `Result<SystemInfo, String>` - 刷新后的系统信息或错误信息
 #[tauri::command]
-pub async fn smart_refresh_system_info(state: State<'_, crate::AppState>) -> Result<SystemInfo, String> {
+pub async fn smart_refresh_system_info(
+    state: State<'_, crate::AppState>,
+) -> Result<SystemInfo, String> {
     let mut monitor = state.monitor.write().await;
     match monitor.smart_refresh().await {
         Ok(info) => {
@@ -227,7 +250,9 @@ pub async fn smart_refresh_system_info(state: State<'_, crate::AppState>) -> Res
 /// # Returns
 /// * `Result<u64, String>` - 建议的刷新间隔（毫秒）或错误信息
 #[tauri::command]
-pub async fn get_suggested_refresh_interval(state: State<'_, crate::AppState>) -> Result<u64, String> {
+pub async fn get_suggested_refresh_interval(
+    state: State<'_, crate::AppState>,
+) -> Result<u64, String> {
     let monitor = state.monitor.read().await;
     let interval = monitor.suggested_refresh_interval().as_millis() as u64;
     debug!("建议刷新间隔: {}ms", interval);
@@ -242,7 +267,9 @@ pub async fn get_suggested_refresh_interval(state: State<'_, crate::AppState>) -
 /// # Returns
 /// * `Result<adaptive_refresh::RefreshStatistics, String>` - 刷新统计信息或错误信息
 #[tauri::command]
-pub async fn get_refresh_statistics(state: State<'_, crate::AppState>) -> Result<adaptive_refresh::RefreshStatistics, String> {
+pub async fn get_refresh_statistics(
+    state: State<'_, crate::AppState>,
+) -> Result<adaptive_refresh::RefreshStatistics, String> {
     let monitor = state.monitor.read().await;
     let stats = monitor.get_refresh_statistics();
     debug!("获取刷新统计信息成功");

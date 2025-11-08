@@ -3,9 +3,9 @@
 
 #![allow(dead_code)]
 
+use crate::errors::MonitorError;
 use std::time::Duration;
 use tokio::time::sleep;
-use crate::errors::MonitorError;
 
 /// 重试配置
 #[derive(Debug, Clone)]
@@ -154,7 +154,9 @@ impl RetryManager {
         }
 
         // 所有重试都失败了
-        RetryResult::Failed(last_error.unwrap_or_else(|| MonitorError::GenericError("重试失败".to_string())))
+        RetryResult::Failed(
+            last_error.unwrap_or_else(|| MonitorError::GenericError("重试失败".to_string())),
+        )
     }
 
     /// 执行带自定义重试策略的操作
@@ -186,7 +188,9 @@ impl RetryManager {
             }
         }
 
-        RetryResult::Failed(last_error.unwrap_or_else(|| MonitorError::GenericError("重试失败".to_string())))
+        RetryResult::Failed(
+            last_error.unwrap_or_else(|| MonitorError::GenericError("重试失败".to_string())),
+        )
     }
 }
 
@@ -227,7 +231,9 @@ pub mod convenience {
         Fut: std::future::Future<Output = Result<T, MonitorError>>,
     {
         let retry_manager = RetryManager::new(config.unwrap_or_default());
-        retry_manager.execute_with_custom_retry(operation, should_retry).await
+        retry_manager
+            .execute_with_custom_retry(operation, should_retry)
+            .await
     }
 }
 

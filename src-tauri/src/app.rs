@@ -4,14 +4,14 @@
 
 use crate::models::*;
 use crate::monitor::SystemMonitor;
+use crate::store_commands;
+use crate::system_commands;
+use crate::tray;
+use crate::window;
+use log::info;
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::RwLock;
-use log::info;
-use crate::tray;
-use crate::system_commands;
-use crate::window;
-use crate::store_commands;
 
 /// 应用状态（优化内存使用，异步安全，支持增量更新）
 pub struct AppState {
@@ -75,7 +75,7 @@ pub fn configure_plugins(mut builder: tauri::Builder<tauri::Wry>) -> tauri::Buil
                     message
                 ))
             })
-            .build()
+            .build(),
     );
     info!("日志插件已配置");
 
@@ -154,6 +154,7 @@ pub fn run() {
             system_commands::get_gpu_monitor_status,
             system_commands::get_gpu_names,
             system_commands::get_detailed_gpu_info,
+            system_commands::get_frame_stats,
             system_commands::get_current_data,
             system_commands::get_system_info_delta,
             system_commands::update_monitor_config,
@@ -175,10 +176,7 @@ pub fn run() {
             store_commands::update_multiple_settings,
             store_commands::clear_all_settings,
         ])
-        .setup(|app| {
-            initialize_app(app)
-        })
+        .setup(|app| initialize_app(app))
         .run(tauri::generate_context!())
         .expect("运行 Tauri 应用时发生错误");
 }
-

@@ -27,6 +27,8 @@ A cross-platform desktop system monitoring application built with Tauri 2.2 + Vu
 - 🌐 **Cross-platform Support**: Support for Windows, macOS, and Linux
 - 📊 **Detailed Network Monitoring**: Real-time network traffic monitoring with upload/download speed display
 - 🎮 **GPU Monitoring**: NVIDIA GPU monitoring support (requires NVML library)
+- 🌡️ **Temperature Breakdown**: Group CPU package/core, memory, and GPU sensors for instant hotspot insights
+- 🎯 **Frame Rate Overlay (Planned)**: Module reserved for backend sampling to avoid displaying inaccurate mock data
 - 🔧 **Highly Configurable**: Customizable refresh intervals, display options, and appearance settings
 
 ## 📸 Screenshots
@@ -92,6 +94,16 @@ pnpm tauri build --target x86_64-unknown-linux-gnu # Linux
 ```
 
 Build artifacts will be generated in the `src-tauri/target/release/bundle/` directory.
+
+### Windows Frame-Rate Capture (Optional)
+
+The frame overlay relies on [Intel PresentMon](https://www.intel.com/content/www/us/en/download/705483/presentmon.html) for accurate FPS sampling:
+
+1. Download and extract the latest `PresentMon.exe`
+2. Add its folder to `PATH`, or set `PRESENTMON_PATH=C:\Tools\PresentMon\PresentMon.exe`
+3. Restart System Monitor and enable the “Frame Rate” module under Settings → Display Modules
+
+> Currently only Windows supports frame capture; macOS/Linux will show an “Unavailable” hint instead of mock data.
 
 ## 📥 Download & Install
 

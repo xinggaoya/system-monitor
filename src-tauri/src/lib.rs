@@ -3,17 +3,18 @@
 //! 这是应用程序的主入口点，负责模块的声明和应用的启动。
 
 // 声明所有模块
+mod adaptive_refresh;
+mod app;
+mod errors;
+mod frame_monitor;
+mod gpu_monitor;
 mod models;
 mod monitor;
-mod gpu_monitor;
-mod errors;
 mod retry;
-mod adaptive_refresh;
-mod tray;
-mod window;
 mod store_commands;
 mod system_commands;
-mod app;
+mod tray;
+mod window;
 
 // 重新导出应用状态，供其他模块使用
 pub use app::AppState;

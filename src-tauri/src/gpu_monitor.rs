@@ -1,8 +1,8 @@
 use crate::models::*;
 use nvml_wrapper::{
-    Nvml,
     enum_wrappers::device::{Clock, TemperatureSensor},
     error::NvmlError,
+    Nvml,
 };
 use thiserror::Error;
 
@@ -32,7 +32,8 @@ impl GpuMonitor {
         // 尝试初始化NVML
         match Nvml::init() {
             Ok(nvml) => {
-                let device_count = nvml.device_count()
+                let device_count = nvml
+                    .device_count()
                     .map_err(GpuMonitorError::NvmlInitFailed)?;
 
                 if device_count == 0 {
@@ -120,7 +121,7 @@ impl GpuMonitor {
                 // 降级到模拟数据
                 GpuMemoryInfo {
                     total: 10 * 1024 * 1024 * 1024, // 10GB
-                    used: 4 * 1024 * 1024 * 1024,  // 4GB
+                    used: 4 * 1024 * 1024 * 1024,   // 4GB
                     usage_percent: 40.0,
                 }
             }
@@ -182,7 +183,8 @@ impl GpuMonitor {
         }
 
         let nvml = self.nvml.as_ref().unwrap();
-        let device = nvml.device_by_index(device_index)
+        let device = nvml
+            .device_by_index(device_index)
             .map_err(GpuMonitorError::NvmlInitFailed)?;
 
         let mut info = String::new();

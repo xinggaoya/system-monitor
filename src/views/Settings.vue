@@ -47,42 +47,84 @@
                     @update:value="handleSettingsChange"
                 />
               </n-form-item>
-              <n-form-item label="启用 CPU 监控" path="enableCpuMonitor">
-                <n-switch
-                    v-model:value="settings.enableCpuMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="启用内存监控" path="enableMemoryMonitor">
-                <n-switch
-                    v-model:value="settings.enableMemoryMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="启用 GPU 监控" path="enableGpuMonitor">
-                <n-switch
-                    v-model:value="settings.enableGpuMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="启用网络监控" path="enableNetworkMonitor">
-                <n-switch
-                    v-model:value="settings.enableNetworkMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="启用磁盘监控" path="enableDiskMonitor">
-                <n-switch
-                    v-model:value="settings.enableDiskMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="启用温度监控" path="enableTemperatureMonitor">
-                <n-switch
-                    v-model:value="settings.enableTemperatureMonitor"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
+            </n-card>
+          </n-gi>
+
+          <n-gi>
+            <n-card title="显示模块" class="settings-card">
+              <div
+                  v-for="(module, index) in orderedMonitorModules"
+                  :key="module.key"
+                  class="panel-row"
+              >
+                <div class="panel-meta">
+                  <p class="panel-title">{{ module.label }}</p>
+                  <p class="panel-desc">{{ module.description || monitorModuleDescriptions[module.key] }}</p>
+                </div>
+                <div class="panel-actions">
+                  <n-button
+                      quaternary
+                      circle
+                      size="small"
+                      :disabled="index === 0"
+                      @click="moveMonitorModule(module.key, 'up')"
+                  >
+                    ↑
+                  </n-button>
+                  <n-button
+                      quaternary
+                      circle
+                      size="small"
+                      :disabled="index === orderedMonitorModules.length - 1"
+                      @click="moveMonitorModule(module.key, 'down')"
+                  >
+                    ↓
+                  </n-button>
+                  <n-switch
+                      :value="module.enabled"
+                      @update:value="(value: boolean) => toggleMonitorModule(module.key, value)"
+                  />
+                </div>
+              </div>
+            </n-card>
+          </n-gi>
+
+          <n-gi v-if="settings.enableTemperatureMonitor">
+            <n-card title="温度监控模块" class="settings-card">
+              <div
+                  v-for="(panel, index) in orderedTemperaturePanels"
+                  :key="panel.key"
+                  class="panel-row"
+              >
+                <div class="panel-meta">
+                  <p class="panel-title">{{ panel.label }}</p>
+                  <p class="panel-desc">{{ panel.description || temperaturePanelDescriptions[panel.key] }}</p>
+                </div>
+                <div class="panel-actions">
+                  <n-button
+                      quaternary
+                      circle
+                      size="small"
+                      :disabled="index === 0"
+                      @click="moveTemperaturePanel(panel.key, 'up')"
+                  >
+                    ↑
+                  </n-button>
+                  <n-button
+                      quaternary
+                      circle
+                      size="small"
+                      :disabled="index === orderedTemperaturePanels.length - 1"
+                      @click="moveTemperaturePanel(panel.key, 'down')"
+                  >
+                    ↓
+                  </n-button>
+                  <n-switch
+                      :value="panel.enabled"
+                      @update:value="(value: boolean) => toggleTemperaturePanel(panel.key, value)"
+                  />
+                </div>
+              </div>
             </n-card>
           </n-gi>
 
@@ -270,11 +312,11 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
-import {storeToRefs} from 'pinia'
-import {invoke} from '@tauri-apps/api/core'
-import {useSettingsStore} from '@/stores/settings'
-import type {FormInst, FormRules} from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { invoke } from '@tauri-apps/api/core'
+import { useSettingsStore, type SettingsState, type TemperaturePanelPreference, type TemperaturePanelKey, type MonitorModulePreference, type MonitorModuleKey } from '@/stores/settings'
+import type { FormInst, FormRules } from 'naive-ui'
 
 const settingsStore = useSettingsStore()
 const {settings} = storeToRefs(settingsStore)
@@ -329,6 +371,105 @@ const foregroundColors = [
   {name: '霓虹绿', value: '#a3e635', text: '#0f172a'},
   {name: '珊瑚', value: '#fb7185', text: '#0f172a'}
 ]
+
+const orderedTemperaturePanels = computed<TemperaturePanelPreference[]>(() => {
+  const panels = settings.value.temperaturePanels ?? []
+  return [...panels].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+})
+
+const temperaturePanelDescriptions: Record<TemperaturePanelKey, string> = {
+  cpu: '聚合 CPU 包/核心的最高温度，判断处理器热点',
+  memory: 'DIMM / 内存温度，帮助排查超频稳定性',
+  gpu: '显卡核心/显存温度，适合游戏或渲染场景',
+  vrm: '主板供电模块温度，关注长时间高负载',
+  motherboard: '主板/PCH 温度，监控机箱整体散热',
+  storage: 'NVMe / SSD / HDD 温度，防止高速盘降速'
+}
+
+const orderedMonitorModules = computed<MonitorModulePreference[]>(() => {
+  const modules = settings.value.monitorModules ?? []
+  return [...modules].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+})
+
+const monitorModuleDescriptions: Record<MonitorModuleKey, string> = {
+  cpu: 'CPU 使用率与平滑状态',
+  memory: '内存使用率与可用空间',
+  gpu: 'GPU 使用率与显存占用',
+  disk: '最繁忙磁盘的占用情况',
+  temperature: '根据下方温度面板配置展示多组温度',
+  frame: '帧率与帧时间，适合游戏叠加层',
+  network: '总上下行带宽'
+}
+
+const moduleBooleanKeyMap: Record<MonitorModuleKey, keyof SettingsState> = {
+  cpu: 'enableCpuMonitor',
+  memory: 'enableMemoryMonitor',
+  gpu: 'enableGpuMonitor',
+  disk: 'enableDiskMonitor',
+  temperature: 'enableTemperatureMonitor',
+  frame: 'enableFrameStats',
+  network: 'enableNetworkMonitor'
+}
+
+const updateTemperaturePanels = (panels: TemperaturePanelPreference[]) => {
+  settings.value.temperaturePanels = panels.map((panel, index) => ({
+    ...panel,
+    order: index
+  }))
+  handleSettingsChange()
+}
+
+const updateMonitorModules = (modules: MonitorModulePreference[]) => {
+  settings.value.monitorModules = modules.map((module, index) => ({
+    ...module,
+    order: index
+  }))
+}
+
+const toggleTemperaturePanel = (key: TemperaturePanelKey, enabled: boolean) => {
+  const panels = orderedTemperaturePanels.value.map(panel =>
+    panel.key === key ? { ...panel, enabled } : panel
+  )
+  updateTemperaturePanels(panels)
+}
+
+const moveTemperaturePanel = (key: TemperaturePanelKey, direction: 'up' | 'down') => {
+  const panels = [...orderedTemperaturePanels.value]
+  const index = panels.findIndex(panel => panel.key === key)
+  if (index === -1) return
+  const targetIndex = direction === 'up' ? index - 1 : index + 1
+  if (targetIndex < 0 || targetIndex >= panels.length) return
+  const [panel] = panels.splice(index, 1)
+  panels.splice(targetIndex, 0, panel)
+  updateTemperaturePanels(panels)
+}
+
+const toggleMonitorModule = (key: MonitorModuleKey, enabled: boolean) => {
+  const modules = orderedMonitorModules.value.map(module =>
+    module.key === key ? { ...module, enabled } : module
+  )
+  updateMonitorModules(modules)
+  const boolKey = moduleBooleanKeyMap[key]
+  if (boolKey) {
+    settings.value = {
+      ...settings.value,
+      [boolKey]: enabled
+    } as SettingsState
+  }
+  handleSettingsChange()
+}
+
+const moveMonitorModule = (key: MonitorModuleKey, direction: 'up' | 'down') => {
+  const modules = [...orderedMonitorModules.value]
+  const index = modules.findIndex(module => module.key === key)
+  if (index === -1) return
+  const targetIndex = direction === 'up' ? index - 1 : index + 1
+  if (targetIndex < 0 || targetIndex >= modules.length) return
+  const [module] = modules.splice(index, 1)
+  modules.splice(targetIndex, 0, module)
+  updateMonitorModules(modules)
+  handleSettingsChange()
+}
 
 const fontFamilyOptions = [
   {label: 'Inter', value: 'Inter'},
@@ -498,6 +639,41 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   color: #6b7280;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.08);
+}
+
+.panel-row:last-child {
+  border-bottom: none;
+}
+
+.panel-meta {
+  flex: 1;
+}
+
+.panel-title {
+  margin: 0;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.panel-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {
