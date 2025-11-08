@@ -1,6 +1,8 @@
 //! 智能重试机制模块
 //! 提供基于错误类型的自动重试功能
 
+#![allow(dead_code)]
+
 use std::time::Duration;
 use tokio::time::sleep;
 use crate::errors::MonitorError;

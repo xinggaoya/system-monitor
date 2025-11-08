@@ -318,6 +318,7 @@ impl SystemInfoDelta {
     }
 
     /// 检查是否为空更新（没有实际变化）
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.cpu_usage.is_none() &&
         self.memory.is_none() &&

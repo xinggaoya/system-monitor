@@ -1,6 +1,8 @@
 //! 自适应刷新频率管理模块
 //! 根据系统状态和用户使用模式智能调整刷新频率
 
+#![allow(dead_code)]
+
 use std::time::{Duration, Instant};
 use crate::models::*;
 

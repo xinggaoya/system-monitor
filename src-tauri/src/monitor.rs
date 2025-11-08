@@ -21,6 +21,7 @@ pub struct SystemMonitor {
     last_network_data: Arc<Mutex<NetworkDataMap>>,
     config: MonitorConfig,
     gpu_monitor: GpuMonitor,
+    #[allow(dead_code)]
     retry_manager: RetryManager,
     adaptive_refresh: AdaptiveRefreshManager,
 }
