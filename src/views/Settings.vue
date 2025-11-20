@@ -1,313 +1,293 @@
 <template>
   <div class="settings-shell">
-    <n-page-header
-        class="settings-header"
-        title="系统监控设置"
-        subtitle="自定义刷新策略和外观，让状态一目了然"
-    >
-      <template #extra>
-        <n-button round secondary size="small" @click="closeWindow">关闭</n-button>
-      </template>
-    </n-page-header>
+    <div class="settings-container">
+      <n-page-header
+          class="settings-header"
+          title="系统监控设置"
+          subtitle="自定义刷新策略和外观，让状态一目了然"
+      >
+        <template #extra>
+          <n-button quaternary circle size="large" @click="closeWindow">
+            <template #icon>
+              <span class="close-icon">×</span>
+            </template>
+          </n-button>
+        </template>
+      </n-page-header>
 
-    <n-form ref="formRef" :model="settings" :rules="rules" :label-width="120">
-      <n-space vertical size="large">
-        <n-grid cols="1 960:2" x-gap="16" y-gap="16">
+      <n-form ref="formRef" :model="settings" :rules="rules" :label-width="120" class="settings-form">
+        <n-grid cols="1 800:2" x-gap="24" y-gap="24">
+          <!-- 左侧列 -->
           <n-gi>
-            <n-card title="通用设置" class="settings-card">
-              <n-form-item label="开机自启动" path="autoStart">
-                <n-switch
-                    v-model:value="settings.autoStart"
-                    @update:value="handleAutoStartUpdate"
-                />
-              </n-form-item>
-              <n-form-item label="显示在任务栏" path="showInTaskbar">
-                <n-switch
-                    v-model:value="settings.showInTaskbar"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="窗口置顶" path="alwaysOnTop">
-                <n-switch
-                    v-model:value="settings.alwaysOnTop"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-            </n-card>
-          </n-gi>
-
-          <n-gi>
-            <n-card title="监控策略" class="settings-card">
-              <n-form-item label="刷新频率" path="refreshInterval">
-                <n-select
-                    class="setting-select"
-                    v-model:value="settings.refreshInterval"
-                    :options="refreshIntervalOptions"
-                    size="small"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-            </n-card>
-          </n-gi>
-
-          <n-gi>
-            <n-card title="显示模块" class="settings-card">
-              <div
-                  v-for="(module, index) in orderedMonitorModules"
-                  :key="module.key"
-                  class="panel-row"
-              >
-                <div class="panel-meta">
-                  <p class="panel-title">{{ module.label }}</p>
-                  <p class="panel-desc">{{ module.description || monitorModuleDescriptions[module.key] }}</p>
-                </div>
-                <div class="panel-actions">
-                  <n-button
-                      quaternary
-                      circle
-                      size="small"
-                      :disabled="index === 0"
-                      @click="moveMonitorModule(module.key, 'up')"
-                  >
-                    ↑
-                  </n-button>
-                  <n-button
-                      quaternary
-                      circle
-                      size="small"
-                      :disabled="index === orderedMonitorModules.length - 1"
-                      @click="moveMonitorModule(module.key, 'down')"
-                  >
-                    ↓
-                  </n-button>
+            <n-space vertical size="large">
+              <n-card title="通用设置" class="settings-card glass-card" size="small">
+                <n-form-item label="开机自启动" path="autoStart">
                   <n-switch
-                      :value="module.enabled"
-                      @update:value="(value: boolean) => toggleMonitorModule(module.key, value)"
-                  />
-                </div>
-              </div>
-            </n-card>
-          </n-gi>
-
-          <n-gi v-if="settings.enableTemperatureMonitor">
-            <n-card title="温度监控模块" class="settings-card">
-              <div
-                  v-for="(panel, index) in orderedTemperaturePanels"
-                  :key="panel.key"
-                  class="panel-row"
-              >
-                <div class="panel-meta">
-                  <p class="panel-title">{{ panel.label }}</p>
-                  <p class="panel-desc">{{ panel.description || temperaturePanelDescriptions[panel.key] }}</p>
-                </div>
-                <div class="panel-actions">
-                  <n-button
-                      quaternary
-                      circle
-                      size="small"
-                      :disabled="index === 0"
-                      @click="moveTemperaturePanel(panel.key, 'up')"
+                      v-model:value="settings.autoStart"
+                      @update:value="handleAutoStartUpdate"
                   >
-                    ↑
-                  </n-button>
-                  <n-button
-                      quaternary
-                      circle
-                      size="small"
-                      :disabled="index === orderedTemperaturePanels.length - 1"
-                      @click="moveTemperaturePanel(panel.key, 'down')"
-                  >
-                    ↓
-                  </n-button>
+                    <template #checked>开启</template>
+                    <template #unchecked>关闭</template>
+                  </n-switch>
+                </n-form-item>
+                <n-form-item label="显示在任务栏" path="showInTaskbar">
                   <n-switch
-                      :value="panel.enabled"
-                      @update:value="(value: boolean) => toggleTemperaturePanel(panel.key, value)"
+                      v-model:value="settings.showInTaskbar"
+                      @update:value="handleSettingsChange"
                   />
+                </n-form-item>
+                <n-form-item label="窗口置顶" path="alwaysOnTop">
+                  <n-switch
+                      v-model:value="settings.alwaysOnTop"
+                      @update:value="handleSettingsChange"
+                  />
+                </n-form-item>
+              </n-card>
+
+              <n-card title="监控策略" class="settings-card glass-card" size="small">
+                <n-form-item label="刷新频率" path="refreshInterval">
+                  <n-select
+                      class="setting-select"
+                      v-model:value="settings.refreshInterval"
+                      :options="refreshIntervalOptions"
+                      size="medium"
+                      @update:value="handleSettingsChange"
+                  />
+                </n-form-item>
+                <div class="hint-text">
+                  较高的刷新频率会增加 CPU 占用，建议根据实际需求调整。
                 </div>
-              </div>
-            </n-card>
+              </n-card>
+
+              <n-card title="外观定制" class="settings-card glass-card" size="small">
+                <n-form-item label="背景风格" path="backgroundStyle">
+                  <n-select
+                      class="setting-select"
+                      v-model:value="settings.backgroundStyle"
+                      :options="backgroundStyleOptions"
+                      size="medium"
+                      @update:value="handleSettingsChange"
+                  />
+                </n-form-item>
+                <n-form-item label="透明度" path="opacity">
+                  <div class="slider-wrapper">
+                    <n-slider
+                        v-model:value="settings.opacity"
+                        :min="10"
+                        :max="100"
+                        :step="1"
+                        :tooltip="false"
+                        @update:value="handleSettingsChange"
+                    />
+                    <span class="value-tag">{{ settings.opacity }}%</span>
+                  </div>
+                </n-form-item>
+                <n-form-item label="主色调" path="backgroundAccent">
+                  <div class="color-picker-wrapper">
+                    <n-color-picker
+                        v-model:value="settings.backgroundAccent"
+                        :modes="['hex']"
+                        :show-alpha="false"
+                        size="small"
+                        class="mini-color-picker"
+                        @update:value="changeBackgroundAccent"
+                    />
+                    <div class="quick-colors">
+                      <div
+                          v-for="color in accentColors"
+                          :key="color.name"
+                          class="color-dot"
+                          :style="{ backgroundColor: color.value }"
+                          :class="{ active: settings.backgroundAccent === color.value }"
+                          @click="changeBackgroundAccent(color.value)"
+                          :title="color.name"
+                      ></div>
+                    </div>
+                  </div>
+                </n-form-item>
+                <n-form-item label="字体颜色" path="foregroundColor">
+                  <div class="color-picker-wrapper">
+                    <n-color-picker
+                        v-model:value="settings.foregroundColor"
+                        :modes="['hex']"
+                        :show-alpha="false"
+                        size="small"
+                        class="mini-color-picker"
+                        @update:value="changeForegroundColor"
+                    />
+                    <div class="quick-colors">
+                      <div
+                          v-for="color in foregroundColors"
+                          :key="color.name"
+                          class="color-dot"
+                          :style="{ backgroundColor: color.value }"
+                          :class="{ active: settings.foregroundColor === color.value }"
+                          @click="changeForegroundColor(color.value)"
+                          :title="color.name"
+                      ></div>
+                    </div>
+                  </div>
+                </n-form-item>
+                <n-form-item label="字体样式" path="fontFamily">
+                  <n-select
+                      class="setting-select"
+                      v-model:value="settings.fontFamily"
+                      :options="fontFamilyOptions"
+                      size="medium"
+                      @update:value="handleSettingsChange"
+                  />
+                </n-form-item>
+              </n-card>
+            </n-space>
           </n-gi>
 
+          <!-- 右侧列 -->
           <n-gi>
-            <n-card title="性能控制" class="settings-card">
-              <n-form-item label="CPU 平滑" path="cpuSmoothing">
-                <div class="setting-control">
-                  <n-slider
-                      v-model:value="settings.cpuSmoothing"
-                      :min="10"
-                      :max="90"
-                      :step="5"
-                      @update:value="handleSettingsChange"
-                  />
-                  <span class="setting-value">{{ settings.cpuSmoothing }}%</span>
-                </div>
-              </n-form-item>
-              <n-form-item label="CPU 警戒线" path="cpuAlertThreshold">
-                <div class="setting-control">
-                  <n-slider
-                      v-model:value="settings.cpuAlertThreshold"
-                      :min="40"
-                      :max="100"
-                      :step="5"
-                      @update:value="handleSettingsChange"
-                  />
-                  <span class="setting-value">{{ settings.cpuAlertThreshold }}%</span>
-                </div>
-              </n-form-item>
-              <n-form-item label="内存平滑" path="memorySmoothing">
-                <div class="setting-control">
-                  <n-slider
-                      v-model:value="settings.memorySmoothing"
-                      :min="10"
-                      :max="90"
-                      :step="5"
-                      @update:value="handleSettingsChange"
-                  />
-                  <span class="setting-value">{{ settings.memorySmoothing }}%</span>
-                </div>
-              </n-form-item>
-              <n-form-item label="内存警戒线" path="memoryAlertThreshold">
-                <div class="setting-control">
-                  <n-slider
-                      v-model:value="settings.memoryAlertThreshold"
-                      :min="40"
-                      :max="100"
-                      :step="5"
-                      @update:value="handleSettingsChange"
-                  />
-                  <span class="setting-value">{{ settings.memoryAlertThreshold }}%</span>
-                </div>
-              </n-form-item>
-            </n-card>
-          </n-gi>
-
-          <n-gi>
-            <n-card title="背景设置" class="settings-card">
-              <n-form-item label="透明度" path="opacity">
-                <div class="setting-control">
-                  <n-slider
-                      class="opacity-slider"
-                      v-model:value="settings.opacity"
-                      :min="10"
-                      :max="100"
-                      :step="1"
-                      @update:value="handleSettingsChange"
-                  />
-                  <span class="setting-value">{{ settings.opacity }}%</span>
-                </div>
-              </n-form-item>
-              <n-form-item label="背景风格" path="backgroundStyle">
-                <n-select
-                    class="setting-select"
-                    v-model:value="settings.backgroundStyle"
-                    :options="backgroundStyleOptions"
-                    size="small"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="主色调" path="backgroundAccent">
-                <div class="setting-control color-control">
-                  <n-color-picker
-                      v-model:value="settings.backgroundAccent"
-                      :modes="['hex']"
-                      :show-alpha="false"
-                      size="small"
-                      @update:value="changeBackgroundAccent"
-                  />
-                  <div class="quick-colors">
-                    <n-button
-                        v-for="color in accentColors"
-                        :key="color.name"
-                        quaternary
-                        round
-                        size="tiny"
-                        :style="{ backgroundColor: color.value, color: '#fff' }"
-                        :class="['color-chip', { active: settings.backgroundAccent === color.value }]"
-                        @click="changeBackgroundAccent(color.value)"
-                    >
-                      {{ color.name }}
-                    </n-button>
+            <n-space vertical size="large">
+              <n-card title="显示模块" class="settings-card glass-card" size="small">
+                <template #header-extra>
+                  <span class="card-subtitle">拖拽排序暂不可用，请使用箭头</span>
+                </template>
+                <div class="module-list">
+                  <div
+                      v-for="(module, index) in orderedMonitorModules"
+                      :key="module.key"
+                      class="module-item"
+                      :class="{ disabled: !module.enabled }"
+                  >
+                    <div class="module-info">
+                      <div class="module-name">{{ module.label }}</div>
+                      <div class="module-desc">{{ module.description || monitorModuleDescriptions[module.key] }}</div>
+                    </div>
+                    <div class="module-actions">
+                      <n-button-group size="tiny">
+                        <n-button
+                            quaternary
+                            :disabled="index === 0"
+                            @click="moveMonitorModule(module.key, 'up')"
+                        >↑</n-button>
+                        <n-button
+                            quaternary
+                            :disabled="index === orderedMonitorModules.length - 1"
+                            @click="moveMonitorModule(module.key, 'down')"
+                        >↓</n-button>
+                      </n-button-group>
+                      <n-switch
+                          size="small"
+                          :value="module.enabled"
+                          @update:value="(value: boolean) => toggleMonitorModule(module.key, value)"
+                      />
+                    </div>
                   </div>
                 </div>
-              </n-form-item>
-            </n-card>
-          </n-gi>
+              </n-card>
 
-          <n-gi>
-            <n-card title="字体设置" class="settings-card">
-              <n-form-item label="字体颜色" path="foregroundColor">
-                <div class="setting-control color-control">
-                  <n-color-picker
-                      v-model:value="settings.foregroundColor"
-                      :modes="['hex']"
-                      :show-alpha="false"
-                      size="small"
-                      @update:value="changeForegroundColor"
-                  />
-                  <div class="quick-colors">
-                    <n-button
-                        v-for="color in foregroundColors"
-                        :key="color.name"
-                        quaternary
-                        round
-                        size="tiny"
-                        :style="{ backgroundColor: color.value, color: color.text }"
-                        :class="['color-chip', { active: settings.foregroundColor === color.value }]"
-                        @click="changeForegroundColor(color.value)"
-                    >
-                      {{ color.name }}
-                    </n-button>
+              <n-card v-if="settings.enableTemperatureMonitor" title="温度监控详情" class="settings-card glass-card" size="small">
+                <div class="module-list">
+                  <div
+                      v-for="(panel, index) in orderedTemperaturePanels"
+                      :key="panel.key"
+                      class="module-item"
+                      :class="{ disabled: !panel.enabled }"
+                  >
+                    <div class="module-info">
+                      <div class="module-name">{{ panel.label }}</div>
+                      <div class="module-desc">{{ panel.description || temperaturePanelDescriptions[panel.key] }}</div>
+                    </div>
+                    <div class="module-actions">
+                      <n-button-group size="tiny">
+                        <n-button
+                            quaternary
+                            :disabled="index === 0"
+                            @click="moveTemperaturePanel(panel.key, 'up')"
+                        >↑</n-button>
+                        <n-button
+                            quaternary
+                            :disabled="index === orderedTemperaturePanels.length - 1"
+                            @click="moveTemperaturePanel(panel.key, 'down')"
+                        >↓</n-button>
+                      </n-button-group>
+                      <n-switch
+                          size="small"
+                          :value="panel.enabled"
+                          @update:value="(value: boolean) => toggleTemperaturePanel(panel.key, value)"
+                      />
+                    </div>
                   </div>
                 </div>
-              </n-form-item>
-              <n-form-item label="字体样式" path="fontFamily">
-                <n-select
-                    class="setting-select"
-                    v-model:value="settings.fontFamily"
-                    :options="fontFamilyOptions"
-                    size="small"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-            </n-card>
-          </n-gi>
+              </n-card>
 
-          <n-gi>
-            <n-card title="高级设置" class="settings-card">
-              <n-form-item label="日志级别" path="logLevel">
-                <n-select
-                    class="setting-select"
-                    v-model:value="settings.logLevel"
-                    :options="logLevelOptions"
-                    size="small"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-              <n-form-item label="数据缓存时间" path="cacheTime">
-                <n-select
-                    class="setting-select"
-                    v-model:value="settings.cacheTime"
-                    :options="cacheTimeOptions"
-                    size="small"
-                    @update:value="handleSettingsChange"
-                />
-              </n-form-item>
-            </n-card>
+              <n-card title="性能微调" class="settings-card glass-card" size="small">
+                <n-form-item label="CPU 平滑度" path="cpuSmoothing">
+                  <div class="slider-wrapper">
+                    <n-slider
+                        v-model:value="settings.cpuSmoothing"
+                        :min="10"
+                        :max="90"
+                        :step="5"
+                        :tooltip="false"
+                        @update:value="handleSettingsChange"
+                    />
+                    <span class="value-tag">{{ settings.cpuSmoothing }}%</span>
+                  </div>
+                </n-form-item>
+                <n-form-item label="内存平滑度" path="memorySmoothing">
+                  <div class="slider-wrapper">
+                    <n-slider
+                        v-model:value="settings.memorySmoothing"
+                        :min="10"
+                        :max="90"
+                        :step="5"
+                        :tooltip="false"
+                        @update:value="handleSettingsChange"
+                    />
+                    <span class="value-tag">{{ settings.memorySmoothing }}%</span>
+                  </div>
+                </n-form-item>
+              </n-card>
+
+              <n-card title="高级选项" class="settings-card glass-card" size="small">
+                <n-grid cols="2" x-gap="12">
+                  <n-gi>
+                    <n-form-item label="日志级别" path="logLevel">
+                      <n-select
+                          class="setting-select"
+                          v-model:value="settings.logLevel"
+                          :options="logLevelOptions"
+                          size="small"
+                          @update:value="handleSettingsChange"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                  <n-gi>
+                    <n-form-item label="缓存时间" path="cacheTime">
+                      <n-select
+                          class="setting-select"
+                          v-model:value="settings.cacheTime"
+                          :options="cacheTimeOptions"
+                          size="small"
+                          @update:value="handleSettingsChange"
+                      />
+                    </n-form-item>
+                  </n-gi>
+                </n-grid>
+              </n-card>
+            </n-space>
           </n-gi>
         </n-grid>
+      </n-form>
 
-        <n-card class="settings-footer-card">
-          <div class="footer-info">
-            <div>系统监控 v1.0.0</div>
-            <span>基于 Tauri · Vue 3 · Naive UI</span>
-          </div>
-          <n-space>
-            <n-button tertiary @click="resetSettings">重置设置</n-button>
-            <n-button type="primary" @click="exportSettings">导出配置</n-button>
-          </n-space>
-        </n-card>
-      </n-space>
-    </n-form>
+      <div class="settings-footer">
+        <div class="footer-info">
+          <div class="app-name">System Monitor</div>
+          <div class="app-version">v1.0.0 · Tauri & Vue 3</div>
+        </div>
+        <n-space>
+          <n-button secondary type="error" size="medium" @click="resetSettings">重置默认</n-button>
+          <n-button type="primary" size="medium" @click="exportSettings">导出配置</n-button>
+        </n-space>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -325,10 +305,10 @@ const formRef = ref<FormInst | null>(null)
 const rules: FormRules = {}
 
 const refreshIntervalOptions = [
-  {label: '0.5 秒', value: 500},
-  {label: '1 秒', value: 1000},
-  {label: '2 秒', value: 2000},
-  {label: '5 秒', value: 5000}
+  {label: '极速 (0.5s)', value: 500},
+  {label: '标准 (1s)', value: 1000},
+  {label: '节能 (2s)', value: 2000},
+  {label: '懒惰 (5s)', value: 5000}
 ]
 
 const logLevelOptions = [
@@ -346,30 +326,30 @@ const cacheTimeOptions = [
 ]
 
 const backgroundStyleOptions = [
-  {label: '玻璃质感', value: 'glass'},
+  {label: '磨砂玻璃', value: 'glass'},
   {label: '极光渐变', value: 'aurora'},
-  {label: '午夜暗色', value: 'midnight'},
-  {label: '纯透明', value: 'transparent'}
+  {label: '深邃午夜', value: 'midnight'},
+  {label: '完全透明', value: 'transparent'}
 ]
 
 const accentColors = [
-  {name: '曜石', value: '#0f172a'},
-  {name: '深蓝', value: '#1d4ed8'},
-  {name: '薄荷', value: '#14b8a6'},
+  {name: '曜石黑', value: '#0f172a'},
+  {name: '深海蓝', value: '#1d4ed8'},
+  {name: '薄荷绿', value: '#14b8a6'},
   {name: '极光紫', value: '#8b5cf6'},
-  {name: '熔岩', value: '#ef4444'},
-  {name: '夕阳', value: '#f97316'},
-  {name: '青碧', value: '#06b6d4'},
-  {name: '星辉', value: '#6366f1'}
+  {name: '熔岩红', value: '#ef4444'},
+  {name: '活力橙', value: '#f97316'},
+  {name: '清澈蓝', value: '#06b6d4'},
+  {name: '星空靛', value: '#6366f1'}
 ]
 
 const foregroundColors = [
   {name: '纯白', value: '#ffffff', text: '#111827'},
-  {name: '冷白', value: '#f3f4f6', text: '#1f2937'},
+  {name: '冷灰', value: '#f3f4f6', text: '#1f2937'},
   {name: '蓝灰', value: '#cbd5f5', text: '#0f172a'},
   {name: '暖金', value: '#facc15', text: '#1f2937'},
-  {name: '霓虹绿', value: '#a3e635', text: '#0f172a'},
-  {name: '珊瑚', value: '#fb7185', text: '#0f172a'}
+  {name: '荧光绿', value: '#a3e635', text: '#0f172a'},
+  {name: '珊瑚粉', value: '#fb7185', text: '#0f172a'}
 ]
 
 const orderedTemperaturePanels = computed<TemperaturePanelPreference[]>(() => {
@@ -378,12 +358,12 @@ const orderedTemperaturePanels = computed<TemperaturePanelPreference[]>(() => {
 })
 
 const temperaturePanelDescriptions: Record<TemperaturePanelKey, string> = {
-  cpu: '聚合 CPU 包/核心的最高温度，判断处理器热点',
-  memory: 'DIMM / 内存温度，帮助排查超频稳定性',
-  gpu: '显卡核心/显存温度，适合游戏或渲染场景',
-  vrm: '主板供电模块温度，关注长时间高负载',
-  motherboard: '主板/PCH 温度，监控机箱整体散热',
-  storage: 'NVMe / SSD / HDD 温度，防止高速盘降速'
+  cpu: 'CPU 核心与封装温度',
+  memory: '内存模块温度',
+  gpu: '显卡核心与显存温度',
+  vrm: '主板供电模块温度',
+  motherboard: '主板芯片组温度',
+  storage: '硬盘/固态硬盘温度'
 }
 
 const orderedMonitorModules = computed<MonitorModulePreference[]>(() => {
@@ -392,13 +372,13 @@ const orderedMonitorModules = computed<MonitorModulePreference[]>(() => {
 })
 
 const monitorModuleDescriptions: Record<MonitorModuleKey, string> = {
-  cpu: 'CPU 使用率与平滑状态',
-  memory: '内存使用率与可用空间',
-  gpu: 'GPU 使用率与显存占用',
-  disk: '最繁忙磁盘的占用情况',
-  temperature: '根据下方温度面板配置展示多组温度',
-  frame: '帧率与帧时间，适合游戏叠加层',
-  network: '总上下行带宽'
+  cpu: 'CPU 使用率',
+  memory: '内存使用情况',
+  gpu: '显卡负载',
+  disk: '磁盘读写活动',
+  temperature: '硬件温度概览',
+  frame: '游戏帧率 (FPS)',
+  network: '网络上传/下载速率'
 }
 
 const moduleBooleanKeyMap: Record<MonitorModuleKey, keyof SettingsState> = {
@@ -472,10 +452,10 @@ const moveMonitorModule = (key: MonitorModuleKey, direction: 'up' | 'down') => {
 }
 
 const fontFamilyOptions = [
-  {label: 'Inter', value: 'Inter'},
+  {label: 'Inter (推荐)', value: 'Inter'},
   {label: 'JetBrains Mono', value: 'JetBrains Mono'},
   {label: 'SF Pro Display', value: 'SF Pro Display'},
-  {label: 'System UI', value: 'system-ui'}
+  {label: '系统默认', value: 'system-ui'}
 ]
 
 const handleSettingsChange = () => {
@@ -496,7 +476,7 @@ const changeForegroundColor = (color: string) => {
 }
 
 const resetSettings = async () => {
-  if (confirm('确定要重置所有设置吗？')) {
+  if (confirm('确定要重置所有设置吗？此操作不可撤销。')) {
     await settingsStore.resetSettings()
   }
 }
@@ -530,174 +510,204 @@ onMounted(() => {
 <style scoped>
 .settings-shell {
   min-height: 100vh;
-  padding: 32px;
-  background: radial-gradient(circle at top, rgba(119, 136, 255, 0.12), transparent 45%),
-  linear-gradient(135deg, #f7f9fc 0%, #eef2ff 100%);
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  color: #1f2937;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.settings-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding-bottom: 40px;
 }
 
 .settings-header {
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
   padding: 16px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-.settings-card {
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  border: none;
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.08);
-}
-
-.setting-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.setting-meta {
-  flex: 1;
-}
-
-.setting-title {
-  margin: 0;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.setting-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
+.close-icon {
+  font-size: 24px;
+  line-height: 1;
   color: #6b7280;
 }
 
-.setting-control {
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+}
+
+:deep(.n-card-header__main) {
+  font-weight: 600;
+  color: #374151;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 8px;
+}
+
+.slider-wrapper {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
 }
 
-.setting-value {
+.value-tag {
+  font-size: 12px;
   font-weight: 600;
   color: #6366f1;
-  width: 48px;
-  text-align: right;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 36px;
+  text-align: center;
 }
 
-:deep(.setting-control .n-slider) {
-  flex: 1;
-  min-width: 220px;
+.color-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
-.opacity-slider {
-  width: 180px;
-}
-
-.setting-select {
-  min-width: 140px;
-}
-
-.color-control {
-  flex-wrap: wrap;
+.mini-color-picker {
+  width: 100%;
 }
 
 .quick-colors {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
-.color-chip {
-  font-size: 12px;
-  color: #fff;
-  border: none;
-  box-shadow: none;
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.color-chip.active {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+.color-dot:hover {
+  transform: scale(1.1);
 }
 
-.settings-footer-card {
+.color-dot.active {
+  border-color: #6366f1;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.module-item:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.module-item.disabled {
+  opacity: 0.6;
+  filter: grayscale(0.8);
+}
+
+.module-info {
+  flex: 1;
+}
+
+.module-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #374151;
+}
+
+.module-desc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.module-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: normal;
+}
+
+.settings-footer {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .footer-info {
   display: flex;
   flex-direction: column;
-  color: #6b7280;
 }
 
-.panel-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.08);
-}
-
-.panel-row:last-child {
-  border-bottom: none;
-}
-
-.panel-meta {
-  flex: 1;
-}
-
-.panel-title {
-  margin: 0;
+.app-name {
   font-weight: 600;
-  color: #1f2937;
+  color: #374151;
 }
 
-.panel-desc {
-  margin: 4px 0 0;
+.app-version {
   font-size: 12px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
-.panel-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-@media (max-width: 768px) {
+@media (max-width: 600px) {
   .settings-shell {
-    padding: 16px;
+    padding: 12px;
   }
-
-  .setting-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .setting-control {
-    width: 100%;
-  }
-
-  .setting-select,
-  .opacity-slider {
-    width: 100%;
-  }
-
-  .settings-footer-card {
+  
+  .settings-footer {
     flex-direction: column;
     gap: 16px;
+    align-items: flex-start;
   }
 }
 </style>

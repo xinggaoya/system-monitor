@@ -19,30 +19,42 @@
     <!-- 数据显示 -->
     <div v-else class="monitor-data">
       <template v-for="(module, index) in moduleDisplays" :key="module.key">
-        <span v-if="index > 0" class="data-divider">|</span>
-        <span class="data-label">{{ module.label }}</span>
-        <template v-if="module.type === 'text'">
-          <span class="data-value" :class="module.valueClass" :title="module.tooltip">
-            {{ module.value }}
-          </span>
-        </template>
-        <template v-else-if="module.type === 'temperature'">
-          <span class="data-value temperature-breakdown" :title="module.badge?.detail">
-            {{ module.badge?.value ?? '--' }}
-          </span>
-        </template>
-        <template v-else-if="module.type === 'frame'">
-          <span class="data-value frame-stats" :class="module.frame?.qualityClass" :title="module.frame?.detail">
-            {{ module.frame?.fpsText }}
-            <small>{{ module.frame?.frameTimeText }}</small>
-          </span>
-        </template>
-        <template v-else-if="module.type === 'network'">
-          <span class="data-value network-values">
-            <div class="network-download">↓{{ module.network?.download }}</div>
-            <div class="network-upload">↑{{ module.network?.upload }}</div>
-          </span>
-        </template>
+        <span v-if="index > 0" class="data-divider"></span>
+        <div class="data-group" :class="module.type">
+          <span class="data-label">{{ module.label }}</span>
+          
+          <template v-if="module.type === 'text'">
+            <span class="data-value" :class="module.valueClass" :title="module.tooltip">
+              {{ module.value }}
+            </span>
+          </template>
+          
+          <template v-else-if="module.type === 'temperature'">
+            <span class="data-value temperature-breakdown" :title="module.badge?.detail">
+              {{ module.badge?.value ?? '--' }}
+            </span>
+          </template>
+          
+          <template v-else-if="module.type === 'frame'">
+            <div class="frame-stats" :class="module.frame?.qualityClass" :title="module.frame?.detail">
+              <span class="fps-value">{{ module.frame?.fpsText }}</span>
+              <span class="frametime-value">{{ module.frame?.frameTimeText }}</span>
+            </div>
+          </template>
+          
+          <template v-else-if="module.type === 'network'">
+            <div class="network-values">
+              <div class="network-row download">
+                <span class="arrow">↓</span>
+                <span class="net-value">{{ module.network?.download }}</span>
+              </div>
+              <div class="network-row upload">
+                <span class="arrow">↑</span>
+                <span class="net-value">{{ module.network?.upload }}</span>
+              </div>
+            </div>
+          </template>
+        </div>
       </template>
     </div>
   </div>
@@ -301,8 +313,8 @@ const frameModuleState = computed(() => {
     }
   }
   const fps = stats.average_fps
-  const fpsText = Number.isFinite(fps) ? `${fps.toFixed(0)} FPS` : '--'
-  const frameTimeText = fps > 0 ? `${(1000 / fps).toFixed(1)} ms` : '--'
+  const fpsText = Number.isFinite(fps) ? `${fps.toFixed(0)}` : '--'
+  const frameTimeText = fps > 0 ? `${(1000 / fps).toFixed(1)}ms` : '--'
   let qualityClass = 'state-idle'
   if (fps >= 70) {
     qualityClass = 'state-good'
@@ -496,7 +508,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
           : '--'
         displays.push({
           key: 'module-memory',
-          label: '内存',
+          label: 'MEM',
           type: 'text',
           value,
           valueClass: memoryStateClass.value === 'normal' ? undefined : memoryStateClass.value
@@ -516,7 +528,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
       case 'disk': {
         displays.push({
           key: 'module-disk',
-          label: '磁盘',
+          label: 'DSK',
           type: 'text',
           value: diskInfo.value.value,
           tooltip: diskInfo.value.detail
@@ -537,7 +549,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
         } else if (aggregatedTemperatureBadge.value) {
           displays.push({
             key: 'temperature-fallback',
-            label: '温度',
+            label: 'TMP',
             type: 'temperature',
             badge: aggregatedTemperatureBadge.value
           })
@@ -548,7 +560,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
         const state = frameModuleState.value
         displays.push({
           key: 'module-frame',
-          label: '帧率',
+          label: 'FPS',
           type: 'frame',
           frame: {
             fpsText: state.fpsText,
@@ -562,7 +574,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
       case 'network': {
         displays.push({
           key: 'module-network',
-          label: '网络',
+          label: 'NET',
           type: 'network',
           network: {
             download: networkSpeed.value.download,
@@ -579,7 +591,7 @@ const moduleDisplays = computed<ModuleDisplay[]>(() => {
   if (!displays.length) {
     displays.push({
       key: 'module-placeholder',
-      label: '监控',
+      label: 'MONITOR',
       type: 'text',
       value: '--',
       valueClass: 'muted',
@@ -639,7 +651,7 @@ const monitorStyles = computed(() => {
     opacity: monitorOpacity.value,
     color: foreground,
     fontFamily: fontStack.value,
-    boxShadow: 'none',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
     backdropFilter
   }
 })
@@ -783,12 +795,14 @@ onUnmounted(() => {
   padding: 8px 20px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   width: fit-content;
   max-width: calc(100vw - 12px);
   white-space: nowrap;
   border: 1px solid transparent;
-  transition: opacity 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  cursor: default;
 }
 
 .loading-state,
@@ -797,7 +811,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 16px;
   width: 100%;
   pointer-events: none;
 }
@@ -815,11 +829,19 @@ onUnmounted(() => {
   font-size: 20px;
 }
 
+.data-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .data-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--monitor-foreground, rgba(255, 255, 255, 0.92));
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--monitor-foreground, rgba(255, 255, 255, 0.7));
+  opacity: 0.8;
+  letter-spacing: 0.5px;
 }
 
 .data-value {
@@ -827,7 +849,7 @@ onUnmounted(() => {
   font-weight: 700;
   color: var(--monitor-foreground, #ffffff);
   min-width: 36px;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.2px;
   transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
@@ -846,68 +868,64 @@ onUnmounted(() => {
 }
 
 .data-divider {
-  color: var(--monitor-accent, rgba(255, 255, 255, 0.35));
-  font-size: 14px;
-  font-weight: 400;
-  margin: 0 4px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  width: 1px;
+  height: 16px;
+  background: var(--monitor-accent, rgba(255, 255, 255, 0.2));
+  margin: 0 2px;
 }
 
 .network-values {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
-  font-size: 12px;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1;
 }
 
-.network-download,
-.network-upload {
-  letter-spacing: 0.2px;
+.network-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
+
+.network-row .arrow {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.network-row.download { color: #60a5fa; }
+.network-row.upload { color: #a78bfa; }
 
 .temperature-breakdown {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
 }
 
 .frame-stats {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.1;
+  align-items: flex-end;
+  line-height: 1;
   gap: 2px;
-  font-variant-numeric: tabular-nums;
 }
 
-.frame-stats small {
-  font-size: 11px;
+.fps-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.frametime-value {
+  font-size: 10px;
+  opacity: 0.7;
   font-weight: 500;
-  opacity: 0.85;
 }
 
-.frame-stats.state-good {
-  color: #4ade80;
-}
-
-.frame-stats.state-warn {
-  color: #f97316;
-}
-
-.frame-stats.state-critical {
-  color: #f43f5e;
-}
-
-.frame-stats.state-idle {
-  opacity: 0.75;
-}
+.frame-stats.state-good { color: #4ade80; }
+.frame-stats.state-warn { color: #f97316; }
+.frame-stats.state-critical { color: #f43f5e; }
+.frame-stats.state-idle { opacity: 0.75; }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

@@ -65,24 +65,22 @@ impl SystemMonitor {
 
     /// 带智能重试的刷新系统信息
     pub async fn refresh_with_retry(&mut self) -> Result<SystemInfo, String> {
-        // 由于异步和借用检查器限制，简化重试逻辑
-        match self.refresh_internal().await {
-            Ok(info) => Ok(info),
-            Err(error) => {
-                if error.is_retryable() {
-                    eprintln!("系统信息刷新失败，建议重试: {}", error);
-                    // 简单重试一次
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                    match self.refresh_internal().await {
-                        Ok(info) => Ok(info),
-                        Err(e) => {
-                            eprintln!("系统信息刷新重试失败: {}", e);
-                            Err(e.to_string())
-                        }
+        const MAX_RETRIES: u32 = 2;
+        const RETRY_DELAY_MS: u64 = 300;
+
+        let mut attempt = 0;
+        loop {
+            match self.refresh_internal().await {
+                Ok(info) => return Ok(info),
+                Err(error) => {
+                    attempt += 1;
+                    if attempt > MAX_RETRIES || !error.is_retryable() {
+                        eprintln!("系统信息刷新失败 (尝试 {}/{}): {}", attempt, MAX_RETRIES + 1, error);
+                        return Err(error.to_string());
                     }
-                } else {
-                    eprintln!("系统信息刷新失败（不可重试）: {}", error);
-                    Err(error.to_string())
+                    
+                    eprintln!("系统信息刷新遇到临时错误，准备重试 ({}): {}", attempt, error);
+                    sleep(Duration::from_millis(RETRY_DELAY_MS * attempt as u64)).await;
                 }
             }
         }
@@ -90,38 +88,26 @@ impl SystemMonitor {
 
     /// 内部刷新实现
     async fn refresh_internal(&mut self) -> Result<SystemInfo, MonitorError> {
-        // 获取系统写锁，使用异步安全的 RwLock
-        let mut system = self.system.write().await;
+        // 1. 刷新系统组件数据
+        self.refresh_components().await;
 
-        // 使用sysinfo 0.33的最新API
-        system.refresh_cpu_usage();
-        system.refresh_memory();
-
-        // 分别刷新其他组件
+        // 2. 获取读取锁并提取数据
+        let system = self.system.read().await;
+        
+        // 3. 独立获取其他动态数据
+        // 注意：这里创建新的实例来获取最新状态，sysinfo 的设计模式
         let disks = Disks::new_with_refreshed_list();
         let networks = Networks::new_with_refreshed_list();
         let components = Components::new_with_refreshed_list();
 
-        // 刷新进程
-        system.refresh_processes(ProcessesToUpdate::All, false);
-
-        // 释放锁，允许在等待期间其他操作访问系统
-        drop(system);
-
-        // 异步等待一小段时间让系统更新（非阻塞，提升性能）
-        sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
-
-        // 重新获取锁来读取最终数据
-        let system = self.system.read().await;
-
-        // 获取各个组件信息
+        // 4. 组装数据
         let cpu_usage = self.get_cpu_usage(&system);
         let memory = self.get_memory_info(&system);
         let network = self.get_network_info(&networks);
         let disk = self.get_disk_info(&disks);
         let system_details = self.get_system_details(&system);
 
-        // 获取温度信息（传入已刷新的组件数据）
+        // 获取温度信息
         let temperatures = if self.config.enable_temperature {
             self.get_temperature_info(&components)
         } else {
@@ -138,11 +124,34 @@ impl SystemMonitor {
         })
     }
 
+    /// 刷新核心系统组件
+    async fn refresh_components(&self) {
+        // 获取写锁进行更新
+        let mut system = self.system.write().await;
+
+        // 刷新 CPU 和 内存
+        system.refresh_cpu_usage();
+        system.refresh_memory();
+        
+        // 刷新进程（如果需要）
+        // system.refresh_processes(ProcessesToUpdate::All, false);
+
+        // 释放锁
+        drop(system);
+
+        // 等待 CPU 数据收集（sysinfo 要求两次刷新之间有间隔才能计算 CPU 使用率）
+        // 注意：这个 sleep 会导致整个刷新过程变慢，需要权衡
+        // 如果调用频率本身就低于 MINIMUM_CPU_UPDATE_INTERVAL，这里其实可以优化
+        sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
+    }
+
     /// 智能刷新系统信息（包含自适应频率管理）
     pub async fn smart_refresh(&mut self) -> Result<SystemInfo, String> {
         // 检查是否应该跳过刷新
         if self.adaptive_refresh.should_skip_refresh() {
-            return Err("智能跳过本次刷新（系统稳定且空闲）".to_string());
+            // 返回上次的缓存数据或特定的状态码可能更好，但这里保持接口一致
+            // 暂时返回错误作为"跳过"的信号，前端应处理这种情况
+            return Err("SKIPPED_STABLE".to_string());
         }
 
         // 执行刷新
